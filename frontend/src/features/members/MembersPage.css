@@ -1,0 +1,83 @@
+@import '../../styles/utilities.css';
+
+.member-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--paper-raised);
+}
+
+.member-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+
+.member-row + .member-row {
+  border-top: 1px solid var(--rule);
+}
+
+.member-row__avatar {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  background: var(--trace-wash);
+  border: 1px solid color-mix(in srgb, var(--trace) 30%, transparent);
+  border-radius: 50%;
+  color: var(--trace);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+}
+
+.member-row__identity {
+  min-width: 0;
+}
+
+.member-row__name {
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.member-row__you {
+  color: var(--ink-faint);
+  font-weight: 400;
+}
+
+.member-row__email {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--ink-faint);
+  overflow-wrap: anywhere;
+}
+
+.member-row__joined {
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.member-row__role select {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.05em;
+  padding: 0.1875rem 1.75rem 0.1875rem 0.5rem;
+}
+
+@media (max-width: 48rem) {
+  .member-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    row-gap: var(--space-2);
+  }
+
+  .member-row__joined {
+    display: none;
+  }
+}

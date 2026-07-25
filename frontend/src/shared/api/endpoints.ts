@@ -1,0 +1,195 @@
+import { apiRequest, queryString } from './client'
+import type {
+  AuthenticationResult,
+  Board,
+  BoardSummary,
+  ColumnPayload,
+  CreateTaskPayload,
+  DocumentDetail,
+  DocumentPayload,
+  DocumentReference,
+  DocumentSummary,
+  DocumentType,
+  LoginPayload,
+  MoveTaskPayload,
+  Page,
+  ReferenceType,
+  RegisterPayload,
+  Task,
+  UpdateTaskPayload,
+  User,
+  Workspace,
+  WorkspaceMember,
+  WorkspacePayload,
+  WorkspaceRole,
+} from '../types'
+
+/** Every endpoint the client uses, grouped by resource. */
+
+const json = (body: unknown): RequestInit => ({ body: JSON.stringify(body) })
+
+export const authApi = {
+  register: (payload: RegisterPayload) =>
+    apiRequest<AuthenticationResult>('/api/auth/register', { method: 'POST', ...json(payload) }),
+  login: (payload: LoginPayload) =>
+    apiRequest<AuthenticationResult>('/api/auth/login', { method: 'POST', ...json(payload) }),
+  me: () => apiRequest<User>('/api/auth/me'),
+}
+
+export const userApi = {
+  search: (query: string) => apiRequest<User[]>(`/api/users${queryString({ q: query })}`),
+}
+
+export const workspaceApi = {
+  list: () => apiRequest<Workspace[]>('/api/workspaces'),
+  get: (workspaceId: string) => apiRequest<Workspace>(`/api/workspaces/${workspaceId}`),
+  create: (payload: WorkspacePayload) =>
+    apiRequest<Workspace>('/api/workspaces', { method: 'POST', ...json(payload) }),
+  update: (workspaceId: string, payload: WorkspacePayload) =>
+    apiRequest<Workspace>(`/api/workspaces/${workspaceId}`, { method: 'PUT', ...json(payload) }),
+  remove: (workspaceId: string) =>
+    apiRequest<void>(`/api/workspaces/${workspaceId}`, { method: 'DELETE' }),
+}
+
+export const memberApi = {
+  list: (workspaceId: string) =>
+    apiRequest<WorkspaceMember[]>(`/api/workspaces/${workspaceId}/members`),
+  add: (workspaceId: string, email: string, role: WorkspaceRole) =>
+    apiRequest<WorkspaceMember>(`/api/workspaces/${workspaceId}/members`, {
+      method: 'POST',
+      ...json({ email, role }),
+    }),
+  changeRole: (workspaceId: string, userId: string, role: WorkspaceRole) =>
+    apiRequest<WorkspaceMember>(`/api/workspaces/${workspaceId}/members/${userId}`, {
+      method: 'PUT',
+      ...json({ role }),
+    }),
+  remove: (workspaceId: string, userId: string) =>
+    apiRequest<void>(`/api/workspaces/${workspaceId}/members/${userId}`, { method: 'DELETE' }),
+}
+
+export const documentApi = {
+  list: (
+    workspaceId: string,
+    options: { documentType?: DocumentType; page?: number; size?: number } = {},
+  ) =>
+    apiRequest<Page<DocumentSummary>>(
+      `/api/workspaces/${workspaceId}/documents${queryString({
+        documentType: options.documentType,
+        page: options.page,
+        size: options.size,
+      })}`,
+    ),
+  search: (workspaceId: string, query: string, options: { page?: number; size?: number } = {}) =>
+    apiRequest<Page<DocumentSummary>>(
+      `/api/workspaces/${workspaceId}/documents/search${queryString({
+        q: query,
+        page: options.page,
+        size: options.size,
+      })}`,
+    ),
+  get: (workspaceId: string, documentId: string) =>
+    apiRequest<DocumentDetail>(`/api/workspaces/${workspaceId}/documents/${documentId}`),
+  create: (workspaceId: string, payload: DocumentPayload) =>
+    apiRequest<DocumentDetail>(`/api/workspaces/${workspaceId}/documents`, {
+      method: 'POST',
+      ...json(payload),
+    }),
+  update: (workspaceId: string, documentId: string, payload: DocumentPayload) =>
+    apiRequest<DocumentDetail>(`/api/workspaces/${workspaceId}/documents/${documentId}`, {
+      method: 'PUT',
+      ...json(payload),
+    }),
+  remove: (workspaceId: string, documentId: string) =>
+    apiRequest<void>(`/api/workspaces/${workspaceId}/documents/${documentId}`, {
+      method: 'DELETE',
+    }),
+
+  listReferences: (workspaceId: string, documentId: string) =>
+    apiRequest<DocumentReference[]>(
+      `/api/workspaces/${workspaceId}/documents/${documentId}/references`,
+    ),
+  addReference: (
+    workspaceId: string,
+    documentId: string,
+    targetDocumentId: string,
+    referenceType: ReferenceType,
+  ) =>
+    apiRequest<DocumentReference>(
+      `/api/workspaces/${workspaceId}/documents/${documentId}/references`,
+      { method: 'POST', ...json({ targetDocumentId, referenceType }) },
+    ),
+  removeReference: (workspaceId: string, documentId: string, referenceId: string) =>
+    apiRequest<void>(
+      `/api/workspaces/${workspaceId}/documents/${documentId}/references/${referenceId}`,
+      { method: 'DELETE' },
+    ),
+}
+
+export const boardApi = {
+  list: (workspaceId: string) =>
+    apiRequest<BoardSummary[]>(`/api/workspaces/${workspaceId}/boards`),
+  get: (workspaceId: string, boardId: string) =>
+    apiRequest<Board>(`/api/workspaces/${workspaceId}/boards/${boardId}`),
+  create: (workspaceId: string, name: string) =>
+    apiRequest<Board>(`/api/workspaces/${workspaceId}/boards`, { method: 'POST', ...json({ name }) }),
+  rename: (workspaceId: string, boardId: string, name: string) =>
+    apiRequest<Board>(`/api/workspaces/${workspaceId}/boards/${boardId}`, {
+      method: 'PUT',
+      ...json({ name }),
+    }),
+  remove: (workspaceId: string, boardId: string) =>
+    apiRequest<void>(`/api/workspaces/${workspaceId}/boards/${boardId}`, { method: 'DELETE' }),
+
+  addColumn: (workspaceId: string, boardId: string, payload: ColumnPayload) =>
+    apiRequest<Board>(`/api/workspaces/${workspaceId}/boards/${boardId}/columns`, {
+      method: 'POST',
+      ...json(payload),
+    }),
+  updateColumn: (workspaceId: string, boardId: string, columnId: string, payload: ColumnPayload) =>
+    apiRequest<Board>(`/api/workspaces/${workspaceId}/boards/${boardId}/columns/${columnId}`, {
+      method: 'PUT',
+      ...json(payload),
+    }),
+  moveColumn: (workspaceId: string, boardId: string, columnId: string, position: number) =>
+    apiRequest<Board>(
+      `/api/workspaces/${workspaceId}/boards/${boardId}/columns/${columnId}/position`,
+      { method: 'PATCH', ...json({ position }) },
+    ),
+  removeColumn: (workspaceId: string, boardId: string, columnId: string) =>
+    apiRequest<Board>(`/api/workspaces/${workspaceId}/boards/${boardId}/columns/${columnId}`, {
+      method: 'DELETE',
+    }),
+}
+
+export const taskApi = {
+  create: (workspaceId: string, boardId: string, payload: CreateTaskPayload) =>
+    apiRequest<Task>(`/api/workspaces/${workspaceId}/boards/${boardId}/tasks`, {
+      method: 'POST',
+      ...json(payload),
+    }),
+  update: (workspaceId: string, boardId: string, taskId: string, payload: UpdateTaskPayload) =>
+    apiRequest<Task>(`/api/workspaces/${workspaceId}/boards/${boardId}/tasks/${taskId}`, {
+      method: 'PUT',
+      ...json(payload),
+    }),
+  move: (workspaceId: string, boardId: string, taskId: string, payload: MoveTaskPayload) =>
+    apiRequest<Task>(`/api/workspaces/${workspaceId}/boards/${boardId}/tasks/${taskId}/position`, {
+      method: 'PATCH',
+      ...json(payload),
+    }),
+  remove: (workspaceId: string, boardId: string, taskId: string) =>
+    apiRequest<void>(`/api/workspaces/${workspaceId}/boards/${boardId}/tasks/${taskId}`, {
+      method: 'DELETE',
+    }),
+  linkDocument: (workspaceId: string, boardId: string, taskId: string, documentId: string) =>
+    apiRequest<Task>(`/api/workspaces/${workspaceId}/boards/${boardId}/tasks/${taskId}/documents`, {
+      method: 'POST',
+      ...json({ documentId }),
+    }),
+  unlinkDocument: (workspaceId: string, boardId: string, taskId: string, documentId: string) =>
+    apiRequest<Task>(
+      `/api/workspaces/${workspaceId}/boards/${boardId}/tasks/${taskId}/documents/${documentId}`,
+      { method: 'DELETE' },
+    ),
+}

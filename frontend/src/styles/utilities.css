@@ -1,0 +1,68 @@
+/* Small shared layout helpers used across features. */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.stack--tight {
+  gap: var(--space-2);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.row--between {
+  justify-content: space-between;
+}
+
+.row--wrap {
+  flex-wrap: wrap;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.form-error {
+  padding: var(--space-3) var(--space-4);
+  background: var(--danger-wash);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+  border-radius: var(--radius);
+  color: var(--danger);
+  font-size: var(--text-sm);
+}
+
+/* Page-level header shared by every workspace screen: a mono eyebrow above a
+   sans title, with actions pushed right. */
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--rule);
+}
+
+.page-header__title {
+  margin-top: var(--space-1);
+  font-size: var(--text-2xl);
+}
+
+.page-header__subtitle {
+  margin-top: var(--space-2);
+  max-width: 42rem;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.page-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}

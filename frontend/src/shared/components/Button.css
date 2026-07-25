@@ -1,0 +1,87 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    background-color var(--transition),
+    border-color var(--transition),
+    color var(--transition);
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.btn--md {
+  padding: 0.4375rem 0.875rem;
+  font-size: var(--text-sm);
+}
+
+.btn--sm {
+  padding: 0.25rem 0.5rem;
+  font-size: var(--text-xs);
+}
+
+.btn--primary {
+  background: var(--trace);
+  border-color: var(--trace);
+  color: #fff;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--trace-strong);
+  border-color: var(--trace-strong);
+}
+
+.btn--secondary {
+  background: var(--paper-raised);
+  border-color: var(--rule-strong);
+  color: var(--ink);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  border-color: var(--trace);
+  color: var(--trace);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--ink-muted);
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}
+
+.btn--danger {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+  color: var(--danger);
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: var(--danger-wash);
+  border-color: var(--danger);
+}
+
+/* Dark themes need light text on the teal fill too, so it is set explicitly
+   rather than inherited. */
+:root[data-theme='dark'] .btn--primary,
+:root[data-theme='dark'] .btn--primary:hover:not(:disabled) {
+  color: #06181a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .btn--primary,
+  :root:not([data-theme='light']) .btn--primary:hover:not(:disabled) {
+    color: #06181a;
+  }
+}

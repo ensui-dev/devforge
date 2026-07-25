@@ -1,0 +1,23 @@
+{
+  /*
+   * Tests typecheck separately from application code.
+   *
+   * Test files legitimately reach for Node APIs — reading a stylesheet off disk,
+   * for instance — while browser code must not. Keeping `types: ["node"]` out of
+   * tsconfig.app.json means a stray `process.env` in a component is a build
+   * error rather than something that fails at runtime in the browser.
+   */
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
+    "types": ["vite/client", "node", "vitest/globals"]
+  },
+  // Cleared because `extends` would otherwise inherit the app project's
+  // exclusion of these very files.
+  "exclude": [],
+  "include": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/test/**/*"
+  ]
+}

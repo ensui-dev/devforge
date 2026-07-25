@@ -1,0 +1,81 @@
+.column__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.column__identity {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* Column names are mono: they label a lane, they are not prose. */
+.column__name {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.column__count {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+}
+
+.column__count--at {
+  color: var(--signal);
+}
+
+.column__count--over {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.column__controls {
+  display: flex;
+  gap: 0.125rem;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+/* Controls stay hidden until the column is engaged, so the board reads as content
+   rather than chrome. Focus reveals them for keyboard users. */
+.column:hover .column__controls,
+.column__controls:focus-within {
+  opacity: 1;
+}
+
+.column__control {
+  width: 1.25rem;
+  height: 1.25rem;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--ink-faint);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  line-height: 1;
+}
+
+.column__control:hover:not(:disabled) {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}
+
+.column__control:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}

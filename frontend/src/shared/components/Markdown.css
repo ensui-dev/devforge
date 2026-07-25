@@ -1,0 +1,124 @@
+/* Prose measure is capped for readability; the mono/sans split from the design
+   system carries through, with headings and code in mono. */
+.markdown {
+  max-width: 46rem;
+  font-size: var(--text-base);
+  line-height: 1.68;
+}
+
+.markdown > * + * {
+  margin-top: var(--space-4);
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  margin-top: var(--space-6);
+  line-height: 1.3;
+}
+
+.markdown h1 {
+  font-size: var(--text-2xl);
+}
+
+.markdown h2 {
+  font-size: var(--text-xl);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule);
+}
+
+.markdown h3 {
+  font-size: var(--text-lg);
+}
+
+.markdown h4 {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.markdown p,
+.markdown li {
+  color: var(--ink);
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: var(--space-5);
+}
+
+.markdown li + li {
+  margin-top: var(--space-1);
+}
+
+.markdown code {
+  padding: 0.0625rem 0.25rem;
+  background: var(--paper-sunken);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+}
+
+.markdown pre {
+  margin: 0;
+  padding: var(--space-4);
+  background: var(--paper-sunken);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  /* Wide code scrolls inside its own box so the page never scrolls sideways. */
+  overflow-x: auto;
+}
+
+.markdown pre code {
+  padding: 0;
+  background: none;
+  border: 0;
+}
+
+.markdown blockquote {
+  margin: 0;
+  padding-left: var(--space-4);
+  border-left: 3px solid var(--trace);
+  color: var(--ink-muted);
+}
+
+.markdown table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.markdown th,
+.markdown td {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--rule);
+  text-align: left;
+}
+
+.markdown th {
+  background: var(--paper-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.markdown hr {
+  border: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.markdown img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+}
+
+.markdown__empty {
+  color: var(--ink-faint);
+  font-style: italic;
+}

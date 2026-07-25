@@ -1,0 +1,60 @@
+# Local PostgreSQL only, which is what `./mvnw spring-boot:run` and `npm run dev`
+# expect. For the whole stack in containers, add the `full` profile:
+#
+#   docker compose --profile full up --build
+#
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: devforge-postgres
+    environment:
+      POSTGRES_DB: devforge
+      POSTGRES_USER: devforge
+      POSTGRES_PASSWORD: devforge
+    ports:
+      # Overridable because many machines already run PostgreSQL on 5432:
+      #   DEVFORGE_DB_PORT=5433 docker compose up -d postgres
+      # Point the backend at the same port with DEVFORGE_DB_URL.
+      - "${DEVFORGE_DB_PORT:-5432}:5432"
+    volumes:
+      - devforge_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devforge -d devforge"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    profiles: ["full"]
+    build:
+      context: ./backend
+    container_name: devforge-backend
+    environment:
+      # The container talks to postgres over the compose network, not localhost.
+      DEVFORGE_DB_URL: jdbc:postgresql://postgres:5432/devforge
+      DEVFORGE_DB_USERNAME: devforge
+      DEVFORGE_DB_PASSWORD: devforge
+      # Development value. Any real deployment must supply its own secret; the
+      # application refuses to start if it is shorter than 32 characters.
+      DEVFORGE_JWT_SECRET: ${DEVFORGE_JWT_SECRET:-local-compose-signing-key-not-for-production}
+      # nginx proxies /api from the same origin, so CORS stays off.
+      DEVFORGE_CORS_ORIGINS: ""
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+  frontend:
+    profiles: ["full"]
+    build:
+      context: ./frontend
+    container_name: devforge-frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3000:80"
+
+volumes:
+  devforge_pg_data:
