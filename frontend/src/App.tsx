@@ -12,6 +12,8 @@ import { RegisterPage } from './features/auth/RegisterPage'
 import { HomePage } from './features/site/HomePage'
 import { SetupPage } from './features/setup/SetupPage'
 import { InstanceSettingsPage } from './features/instance/InstanceSettingsPage'
+import { InstanceActivityPage } from './features/activity/InstanceActivityPage'
+import { WorkspaceActivityPage } from './features/activity/WorkspaceActivityPage'
 import { DocsPage } from './features/site/DocsPage'
 import { WorkspaceListPage } from './features/workspaces/WorkspaceListPage'
 import { WorkspaceLayout } from './features/workspaces/WorkspaceLayout'
@@ -69,6 +71,7 @@ export function App() {
                       {/* Guarded again by the server, which refuses anyone who is
                           not an instance administrator. */}
                       <Route path="/instance" element={<InstanceSettingsPage />} />
+                      <Route path="/instance/activity" element={<InstanceActivityPage />} />
                       <Route path="/workspaces/:workspaceId" element={<WorkspaceLayout />}>
                         <Route index element={<WorkspaceOverviewPage />} />
                         <Route path="documents" element={<DocumentListPage />} />
@@ -76,6 +79,7 @@ export function App() {
                         <Route path="boards" element={<BoardListPage />} />
                         <Route path="boards/:boardId" element={<BoardPage />} />
                         <Route path="members" element={<MembersPage />} />
+                        <Route path="activity" element={<WorkspaceActivityPage />} />
                         <Route path="settings" element={<WorkspaceSettingsPage />} />
                       </Route>
                     </Route>

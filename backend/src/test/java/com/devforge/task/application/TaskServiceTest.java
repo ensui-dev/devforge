@@ -1,5 +1,6 @@
 package com.devforge.task.application;
 
+import com.devforge.audit.contract.AuditTrail;
 import com.devforge.document.contract.DocumentDirectory;
 import com.devforge.document.contract.DocumentRef;
 import com.devforge.document.contract.DocumentType;
@@ -59,6 +60,9 @@ class TaskServiceTest {
 
     @Mock
     private BoardAssembler boardAssembler;
+
+    @Mock
+    private AuditTrail auditTrail;
 
     @InjectMocks
     private TaskService taskService;

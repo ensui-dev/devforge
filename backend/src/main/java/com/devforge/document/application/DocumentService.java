@@ -1,8 +1,13 @@
 package com.devforge.document.application;
 
+import com.devforge.audit.contract.AuditAction;
+import com.devforge.audit.contract.AuditEntry;
+import com.devforge.audit.contract.AuditTargetType;
+import com.devforge.audit.contract.AuditTrail;
 import com.devforge.document.contract.DocumentType;
 import com.devforge.document.domain.Document;
 import com.devforge.document.domain.DocumentRepository;
+import com.devforge.document.domain.RevisionReason;
 import com.devforge.shared.application.PageResponse;
 import com.devforge.shared.exception.DuplicateResourceException;
 import com.devforge.shared.exception.ResourceNotFoundException;
@@ -29,10 +34,19 @@ public class DocumentService {
 
     private final DocumentRepository documentRepository;
     private final WorkspaceAccess workspaceAccess;
+    private final DocumentHistoryService history;
+    private final AuditTrail auditTrail;
 
-    public DocumentService(DocumentRepository documentRepository, WorkspaceAccess workspaceAccess) {
+    public DocumentService(
+            DocumentRepository documentRepository,
+            WorkspaceAccess workspaceAccess,
+            DocumentHistoryService history,
+            AuditTrail auditTrail
+    ) {
         this.documentRepository = documentRepository;
         this.workspaceAccess = workspaceAccess;
+        this.history = history;
+        this.auditTrail = auditTrail;
     }
 
     public PageResponse<DocumentSummaryResponse> findByWorkspace(
@@ -91,6 +105,17 @@ public class DocumentService {
                 request.documentType(),
                 request.isInternal()
         ));
+
+        // Revision 1 is what the document was created as, so history is never
+        // missing its own beginning.
+        history.snapshot(document, RevisionReason.CREATED, null, userId);
+        auditTrail.record(userId, AuditEntry
+                .of(AuditAction.DOCUMENT_CREATED, AuditTargetType.DOCUMENT)
+                .target(document.getId(), document.getTitle())
+                .inWorkspace(workspaceId)
+                .with("documentType", document.getDocumentType())
+                .with("internal", document.isInternal()));
+
         return DocumentResponse.from(document);
     }
 
@@ -109,20 +134,58 @@ public class DocumentService {
             throw new DuplicateResourceException("Document slug already exists: " + request.slug());
         }
 
+        // Captured before the edit so the log can say what actually changed
+        // rather than listing every field on every save.
+        String previousTitle = document.getTitle();
+        String previousSlug = document.getSlug();
+        DocumentType previousType = document.getDocumentType();
+        boolean previousInternal = document.isInternal();
+        int previousLength = document.getContent().length();
+
         document.revise(
                 request.title(),
                 request.slug(),
                 request.content(),
                 request.documentType(),
                 request.isInternal());
+
+        // Git refuses an empty commit; so does this. Saving a document without
+        // changing it must not append a revision that says nothing, or an audit
+        // entry with no changed fields — hitting save twice would otherwise fill
+        // both with noise.
+        if (!history.differsFromLatest(document)) {
+            return DocumentResponse.from(document);
+        }
+
+        history.snapshot(document, RevisionReason.UPDATED, null, userId);
+        auditTrail.record(userId, AuditEntry
+                .of(AuditAction.DOCUMENT_UPDATED, AuditTargetType.DOCUMENT)
+                .target(document.getId(), document.getTitle())
+                .inWorkspace(workspaceId)
+                .changed("title", previousTitle, document.getTitle())
+                .changed("slug", previousSlug, document.getSlug())
+                .changed("documentType", previousType, document.getDocumentType())
+                .changed("internal", previousInternal, document.isInternal())
+                .changed("contentLength", previousLength, document.getContent().length()));
+
         return DocumentResponse.from(document);
     }
 
     @Transactional
     public void delete(UUID workspaceId, UUID documentId, UUID userId) {
         workspaceAccess.requireAccess(workspaceId, userId, WorkspaceRole.MEMBER);
-        // References to and from this document, and any task links, cascade.
-        documentRepository.delete(loadDocument(workspaceId, documentId));
+        Document document = loadDocument(workspaceId, documentId);
+
+        // Recorded before the delete, while the title still exists to record.
+        auditTrail.record(userId, AuditEntry
+                .of(AuditAction.DOCUMENT_DELETED, AuditTargetType.DOCUMENT)
+                .target(document.getId(), document.getTitle())
+                .inWorkspace(workspaceId)
+                .with("slug", document.getSlug()));
+
+        // References to and from this document, its revisions, and any task links
+        // all cascade. The audit entry is what survives.
+        documentRepository.delete(document);
     }
 
     private Document loadDocument(UUID workspaceId, UUID documentId) {

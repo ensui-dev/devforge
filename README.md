@@ -521,11 +521,19 @@ Deliberate omissions, in rough priority order:
   session eventually ends with a redirect to sign-in.
 - **Email invitations.** Members are added by email address, but the person must
   already have registered.
-- **Document history.** Optimistic locking prevents lost updates, but previous
-  revisions are not retained.
 - **A rendered graph view.** Connections are listed per document; there is no
   whole-workspace visualisation.
 - **Rate limiting** on the authentication endpoints.
+- **No retention policy** for history. Revisions and audit rows accumulate
+  indefinitely. Both tables stay small — audit rows are a few hundred bytes, and a
+  document body is stored once per distinct content, so a restore or a reverted edit
+  adds none — but nothing prunes them. Deleting a document removes its revisions;
+  its audit entries are kept deliberately.
+- **Docs-as-code.** Authoring documentation in a git repository and pushing it to
+  DevForge, rather than typing into the web form. Sketched in
+  [issue #1](https://github.com/ensui-dev/devforge/issues/1) — the revision store is
+  already the right shape for it, but the conflict and identity questions are not
+  settled.
 - **Password reset.** An operator can create accounts and hand out a temporary
   password, but nobody can reset their own.
 - **SMTP.** Nothing sends email, so registration is not verified and there are no

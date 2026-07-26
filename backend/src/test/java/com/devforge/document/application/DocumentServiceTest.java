@@ -1,5 +1,6 @@
 package com.devforge.document.application;
 
+import com.devforge.audit.contract.AuditTrail;
 import com.devforge.document.contract.DocumentType;
 import com.devforge.document.domain.Document;
 import com.devforge.document.domain.DocumentRepository;
@@ -44,6 +45,12 @@ class DocumentServiceTest {
 
     @Mock
     private WorkspaceAccess workspaceAccess;
+
+    @Mock
+    private AuditTrail auditTrail;
+
+    @Mock
+    private DocumentHistoryService documentHistoryService;
 
     @InjectMocks
     private DocumentService documentService;

@@ -1,5 +1,6 @@
 package com.devforge.workspace.application;
 
+import com.devforge.audit.contract.AuditTrail;
 import com.devforge.identity.contract.UserDirectory;
 import com.devforge.identity.contract.UserRef;
 import com.devforge.shared.exception.DomainValidationException;
@@ -45,6 +46,9 @@ class MembershipServiceTest {
 
     @Mock
     private UserDirectory userDirectory;
+
+    @Mock
+    private AuditTrail auditTrail;
 
     @InjectMocks
     private MembershipService membershipService;

@@ -55,6 +55,18 @@ export const queryKeys = {
       ['workspaces', workspaceId, 'documents', 'detail', documentId] as const,
     references: (workspaceId: string, documentId: string) =>
       ['workspaces', workspaceId, 'documents', 'detail', documentId, 'references'] as const,
+    /** Size is in the key for the same reason it is on the document lists. */
+    revisions: (workspaceId: string, documentId: string, page: number, size: number) =>
+      ['workspaces', workspaceId, 'documents', 'detail', documentId, 'revisions', page, size] as const,
+    revision: (workspaceId: string, documentId: string, revision: number) =>
+      ['workspaces', workspaceId, 'documents', 'detail', documentId, 'revisions', revision] as const,
+  },
+
+  activity: {
+    workspace: (workspaceId: string, action: string, page: number, size: number) =>
+      ['workspaces', workspaceId, 'activity', action, page, size] as const,
+    instance: (action: string, page: number, size: number) =>
+      ['instance', 'activity', action, page, size] as const,
   },
 
   boards: {

@@ -15,6 +15,9 @@ const NAV_ITEMS: { to: string; label: string; end: boolean; minimumRole?: Worksp
   { to: 'documents', label: 'Documents', end: false },
   { to: 'boards', label: 'Boards', end: false },
   { to: 'members', label: 'Team', end: false },
+  // No minimum role: the log reveals nothing a viewer cannot already read, and
+  // knowing who last changed a page is part of reading it honestly.
+  { to: 'activity', label: 'Activity', end: false },
   // Everything on the settings screen requires ADMIN, so a member or viewer is
   // not offered a page they could only read.
   { to: 'settings', label: 'Settings', end: false, minimumRole: 'ADMIN' },

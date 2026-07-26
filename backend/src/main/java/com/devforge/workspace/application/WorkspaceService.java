@@ -1,5 +1,9 @@
 package com.devforge.workspace.application;
 
+import com.devforge.audit.contract.AuditAction;
+import com.devforge.audit.contract.AuditEntry;
+import com.devforge.audit.contract.AuditTargetType;
+import com.devforge.audit.contract.AuditTrail;
 import com.devforge.shared.exception.DuplicateResourceException;
 import com.devforge.shared.exception.ResourceNotFoundException;
 import com.devforge.workspace.contract.WorkspaceAccess;
@@ -25,15 +29,18 @@ public class WorkspaceService {
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository memberRepository;
     private final WorkspaceAccess workspaceAccess;
+    private final AuditTrail auditTrail;
 
     public WorkspaceService(
             WorkspaceRepository workspaceRepository,
             WorkspaceMemberRepository memberRepository,
-            WorkspaceAccess workspaceAccess
+            WorkspaceAccess workspaceAccess,
+            AuditTrail auditTrail
     ) {
         this.workspaceRepository = workspaceRepository;
         this.memberRepository = memberRepository;
         this.workspaceAccess = workspaceAccess;
+        this.auditTrail = auditTrail;
     }
 
     /**
@@ -75,6 +82,12 @@ public class WorkspaceService {
                 new Workspace(request.name(), request.description(), request.slug(), creatorId));
         memberRepository.save(new WorkspaceMember(workspace.getId(), creatorId, WorkspaceRole.OWNER));
 
+        auditTrail.record(creatorId, AuditEntry
+                .of(AuditAction.WORKSPACE_CREATED, AuditTargetType.WORKSPACE)
+                .target(workspace.getId(), workspace.getName())
+                .inWorkspace(workspace.getId())
+                .with("slug", workspace.getSlug()));
+
         return WorkspaceResponse.from(workspace, WorkspaceRole.OWNER);
     }
 
@@ -90,13 +103,38 @@ public class WorkspaceService {
                     "This owner already has a workspace with the slug: " + request.slug());
         }
 
+        String previousName = workspace.getName();
+        String previousSlug = workspace.getSlug();
+        String previousDescription = workspace.getDescription();
+
         workspace.describe(request.name(), request.description(), request.slug());
+
+        auditTrail.record(userId, AuditEntry
+                .of(AuditAction.WORKSPACE_UPDATED, AuditTargetType.WORKSPACE)
+                .target(workspace.getId(), workspace.getName())
+                .inWorkspace(workspaceId)
+                .changed("name", previousName, workspace.getName())
+                .changed("slug", previousSlug, workspace.getSlug())
+                .changed("description", previousDescription, workspace.getDescription()));
+
         return WorkspaceResponse.from(workspace, ref.callerRole());
     }
 
     @Transactional
     public void delete(UUID workspaceId, UUID userId) {
         workspaceAccess.requireAccess(workspaceId, userId, WorkspaceRole.OWNER);
+        Workspace workspace = loadWorkspace(workspaceId);
+
+        // Scoped like every other workspace event. Audit rows carry no foreign key
+        // to workspaces, so this one survives the deletion it describes — it is
+        // simply no longer reachable through the workspace's own endpoint, which
+        // now 404s. Operators still see it in the instance log.
+        auditTrail.record(userId, AuditEntry
+                .of(AuditAction.WORKSPACE_DELETED, AuditTargetType.WORKSPACE)
+                .target(workspace.getId(), workspace.getName())
+                .inWorkspace(workspaceId)
+                .with("slug", workspace.getSlug()));
+
         // Documents, boards, and memberships cascade at the database level.
         workspaceRepository.deleteById(workspaceId);
     }

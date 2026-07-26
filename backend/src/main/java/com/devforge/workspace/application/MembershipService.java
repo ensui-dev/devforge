@@ -1,5 +1,9 @@
 package com.devforge.workspace.application;
 
+import com.devforge.audit.contract.AuditAction;
+import com.devforge.audit.contract.AuditEntry;
+import com.devforge.audit.contract.AuditTargetType;
+import com.devforge.audit.contract.AuditTrail;
 import com.devforge.identity.contract.UserDirectory;
 import com.devforge.identity.contract.UserRef;
 import com.devforge.shared.exception.DomainValidationException;
@@ -37,15 +41,18 @@ public class MembershipService {
     private final WorkspaceMemberRepository memberRepository;
     private final WorkspaceAccess workspaceAccess;
     private final UserDirectory userDirectory;
+    private final AuditTrail auditTrail;
 
     public MembershipService(
             WorkspaceMemberRepository memberRepository,
             WorkspaceAccess workspaceAccess,
-            UserDirectory userDirectory
+            UserDirectory userDirectory,
+            AuditTrail auditTrail
     ) {
         this.memberRepository = memberRepository;
         this.workspaceAccess = workspaceAccess;
         this.userDirectory = userDirectory;
+        this.auditTrail = auditTrail;
     }
 
     public List<MemberResponse> findMembers(UUID workspaceId, UUID actorId) {
@@ -76,6 +83,13 @@ public class MembershipService {
 
         WorkspaceMember member = memberRepository.save(
                 new WorkspaceMember(workspaceId, invitee.id(), request.role()));
+
+        auditTrail.record(actorId, AuditEntry
+                .of(AuditAction.MEMBER_ADDED, AuditTargetType.MEMBER)
+                .target(invitee.id(), invitee.email())
+                .inWorkspace(workspaceId)
+                .with("role", request.role()));
+
         return MemberResponse.of(member, invitee);
     }
 
@@ -96,8 +110,17 @@ public class MembershipService {
             requireAnotherOwnerRemains(workspaceId);
         }
 
+        WorkspaceRole previousRole = member.getRole();
         member.changeRole(request.role());
-        return MemberResponse.of(member, userDirectory.findById(targetUserId).orElse(null));
+
+        UserRef target = userDirectory.findById(targetUserId).orElse(null);
+        auditTrail.record(actorId, AuditEntry
+                .of(AuditAction.MEMBER_ROLE_CHANGED, AuditTargetType.MEMBER)
+                .target(targetUserId, target == null ? null : target.email())
+                .inWorkspace(workspaceId)
+                .changed("role", previousRole, request.role()));
+
+        return MemberResponse.of(member, target);
     }
 
     @Transactional
@@ -118,6 +141,15 @@ public class MembershipService {
         if (member.getRole() == WorkspaceRole.OWNER) {
             requireAnotherOwnerRemains(workspaceId);
         }
+
+        UserRef target = userDirectory.findById(targetUserId).orElse(null);
+        auditTrail.record(actorId, AuditEntry
+                .of(AuditAction.MEMBER_REMOVED, AuditTargetType.MEMBER)
+                .target(targetUserId, target == null ? null : target.email())
+                .inWorkspace(workspaceId)
+                .with("role", member.getRole())
+                // Leaving and being removed read very differently in a log.
+                .with("voluntary", leavingVoluntarily));
 
         memberRepository.delete(member);
     }

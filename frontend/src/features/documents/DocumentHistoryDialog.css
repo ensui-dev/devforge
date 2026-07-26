@@ -1,0 +1,192 @@
+/*
+ * History: revisions down the left, the diff against now on the right.
+ *
+ * The diff is set in mono with two gutters, one line number per side, which is how
+ * a reviewer expects to read one. Colour is not the only signal — every changed
+ * line also carries + or −, so the diff survives being printed, being read by
+ * someone colour-blind, or the accent being rebranded to something unlucky.
+ */
+
+.history {
+  display: grid;
+  grid-template-columns: minmax(0, 18rem) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+  /* The dialog scrolls its body; each column scrolls independently within it. */
+  max-height: min(62vh, 34rem);
+}
+
+.history__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+  overflow-y: auto;
+  max-height: inherit;
+  padding-right: var(--space-2);
+}
+
+.revision {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-3);
+  text-align: left;
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition:
+    border-color var(--transition),
+    background-color var(--transition);
+}
+
+.revision:hover {
+  border-color: var(--rule-strong);
+  background: var(--paper-sunken);
+}
+
+.revision--selected {
+  border-color: var(--trace);
+  background: var(--trace-wash);
+}
+
+.revision__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.revision__n {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--trace);
+  font-variant-numeric: tabular-nums;
+}
+
+.revision__title {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.revision__meta,
+.revision__author {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+
+.revision__author {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The comparison */
+.history__detail {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+  overflow-y: auto;
+  max-height: inherit;
+}
+
+.history__detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.history__hint,
+.history__stats {
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.history__stats {
+  margin-top: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.history__added {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.history__removed {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.diff {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper-raised);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.7;
+  /* Long lines scroll here rather than widening the dialog. */
+  overflow-x: auto;
+}
+
+.diff__line {
+  display: grid;
+  grid-template-columns: 3ch 3ch 2ch minmax(0, 1fr);
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  white-space: pre;
+}
+
+.diff__gutter {
+  color: var(--ink-faint);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.diff__marker {
+  user-select: none;
+  font-weight: 600;
+}
+
+.diff__line--added {
+  background: var(--success-wash);
+}
+
+.diff__line--added .diff__marker {
+  color: var(--success);
+}
+
+.diff__line--removed {
+  background: var(--danger-wash);
+}
+
+.diff__line--removed .diff__marker {
+  color: var(--danger);
+}
+
+.diff__text {
+  min-width: 0;
+}
+
+@media (max-width: 48rem) {
+  .history {
+    grid-template-columns: minmax(0, 1fr);
+    max-height: none;
+  }
+
+  .history__list {
+    max-height: 14rem;
+  }
+}

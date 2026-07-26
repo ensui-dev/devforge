@@ -1,5 +1,9 @@
 package com.devforge.instance.application;
 
+import com.devforge.audit.contract.AuditAction;
+import com.devforge.audit.contract.AuditEntry;
+import com.devforge.audit.contract.AuditTargetType;
+import com.devforge.audit.contract.AuditTrail;
 import com.devforge.identity.contract.AccountProvisioning;
 import com.devforge.identity.contract.UserDirectory;
 import com.devforge.identity.contract.UserRef;
@@ -29,15 +33,18 @@ public class InstanceService {
     private final InstanceSettingsRepository repository;
     private final AccountProvisioning accountProvisioning;
     private final UserDirectory userDirectory;
+    private final AuditTrail auditTrail;
 
     public InstanceService(
             InstanceSettingsRepository repository,
             AccountProvisioning accountProvisioning,
-            UserDirectory userDirectory
+            UserDirectory userDirectory,
+            AuditTrail auditTrail
     ) {
         this.repository = repository;
         this.accountProvisioning = accountProvisioning;
         this.userDirectory = userDirectory;
+        this.auditTrail = auditTrail;
     }
 
     /** What an unauthenticated visitor is told: branding, and whether to show setup. */
@@ -77,6 +84,14 @@ public class InstanceService {
         // Recorded last, so a failure anywhere above leaves setup still open.
         settings.completeSetup();
 
+        // No actor: this happens before anyone can sign in, and the account being
+        // created is the one that would otherwise be responsible.
+        auditTrail.record(null, AuditEntry
+                .of(AuditAction.INSTANCE_SET_UP, AuditTargetType.INSTANCE)
+                .target(null, settings.getName())
+                .with("administrator", admin.email())
+                .with("registrationMode", settings.getRegistrationMode()));
+
         return new SetupResponse(InstanceResponse.from(settings), admin.email());
     }
 
@@ -84,7 +99,24 @@ public class InstanceService {
     public AdminInstanceResponse update(InstanceSettingsRequest request, UUID userId) {
         requireInstanceAdmin(userId);
         InstanceSettings settings = current();
+
+        String previousName = settings.getName();
+        var previousMode = settings.getRegistrationMode();
+        boolean previousPublicDocs = settings.isPublicDocsEnabled();
+        String previousDomains = settings.getAllowedEmailDomains();
+        String previousHandbook = settings.getHandbookPath();
+
         apply(settings, request);
+
+        auditTrail.record(userId, AuditEntry
+                .of(AuditAction.INSTANCE_SETTINGS_CHANGED, AuditTargetType.INSTANCE)
+                .target(null, settings.getName())
+                .changed("name", previousName, settings.getName())
+                .changed("registrationMode", previousMode, settings.getRegistrationMode())
+                .changed("publicDocsEnabled", previousPublicDocs, settings.isPublicDocsEnabled())
+                .changed("allowedEmailDomains", previousDomains, settings.getAllowedEmailDomains())
+                .changed("handbookPath", previousHandbook, settings.getHandbookPath()));
+
         return AdminInstanceResponse.from(settings);
     }
 
@@ -100,6 +132,12 @@ public class InstanceService {
         requireInstanceAdmin(actorId);
         UserRef created = accountProvisioning.createAccount(
                 request.email(), request.displayName(), request.password(), request.instanceAdmin());
+
+        auditTrail.record(actorId, AuditEntry
+                .of(AuditAction.ACCOUNT_CREATED, AuditTargetType.ACCOUNT)
+                .target(created.id(), created.email())
+                .with("instanceAdmin", request.instanceAdmin()));
+
         return InstanceUserResponse.from(created, request.instanceAdmin());
     }
 
@@ -114,8 +152,19 @@ public class InstanceService {
     @Transactional
     public InstanceUserResponse setInstanceAdmin(UUID userId, boolean instanceAdmin, UUID actorId) {
         requireInstanceAdmin(actorId);
-        return InstanceUserResponse.from(
-                accountProvisioning.setInstanceAdmin(userId, instanceAdmin), instanceAdmin);
+        UserRef target = accountProvisioning.setInstanceAdmin(userId, instanceAdmin);
+
+        // Who holds the keys to the instance, and who granted them, is the single
+        // most consequential thing this log records.
+        auditTrail.record(actorId, AuditEntry
+                .of(instanceAdmin
+                                ? AuditAction.INSTANCE_ADMIN_GRANTED
+                                : AuditAction.INSTANCE_ADMIN_REVOKED,
+                        AuditTargetType.ACCOUNT)
+                .target(target.id(), target.email())
+                .with("self", actorId.equals(userId)));
+
+        return InstanceUserResponse.from(target, instanceAdmin);
     }
 
     private void apply(InstanceSettings settings, InstanceSettingsRequest request) {

@@ -1,5 +1,9 @@
 package com.devforge.document.application;
 
+import com.devforge.audit.contract.AuditAction;
+import com.devforge.audit.contract.AuditEntry;
+import com.devforge.audit.contract.AuditTargetType;
+import com.devforge.audit.contract.AuditTrail;
 import com.devforge.document.contract.DocumentRef;
 import com.devforge.document.domain.Document;
 import com.devforge.document.domain.DocumentReference;
@@ -33,15 +37,18 @@ public class DocumentReferenceService {
     private final DocumentRepository documentRepository;
     private final DocumentReferenceRepository referenceRepository;
     private final WorkspaceAccess workspaceAccess;
+    private final AuditTrail auditTrail;
 
     public DocumentReferenceService(
             DocumentRepository documentRepository,
             DocumentReferenceRepository referenceRepository,
-            WorkspaceAccess workspaceAccess
+            WorkspaceAccess workspaceAccess,
+            AuditTrail auditTrail
     ) {
         this.documentRepository = documentRepository;
         this.referenceRepository = referenceRepository;
         this.workspaceAccess = workspaceAccess;
+        this.auditTrail = auditTrail;
     }
 
     /**
@@ -106,6 +113,13 @@ public class DocumentReferenceService {
                 request.referenceType()
         ));
 
+        auditTrail.record(userId, AuditEntry
+                .of(AuditAction.DOCUMENT_LINKED, AuditTargetType.DOCUMENT)
+                .target(sourceDocumentId, target.getTitle())
+                .inWorkspace(workspaceId)
+                .with("referenceType", request.referenceType())
+                .with("targetDocumentId", request.targetDocumentId()));
+
         return DocumentReferenceResponse.of(
                 reference,
                 sourceDocumentId,
@@ -121,6 +135,13 @@ public class DocumentReferenceService {
         // declared it, so a backlink cannot be deleted out from under its owner.
         DocumentReference reference = referenceRepository.findByIdAndSourceDocumentId(referenceId, documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document reference", referenceId));
+
+        auditTrail.record(userId, AuditEntry
+                .of(AuditAction.DOCUMENT_UNLINKED, AuditTargetType.DOCUMENT)
+                .target(documentId, null)
+                .inWorkspace(workspaceId)
+                .with("referenceType", reference.getReferenceType())
+                .with("targetDocumentId", reference.getTargetDocumentId()));
 
         referenceRepository.delete(reference);
     }

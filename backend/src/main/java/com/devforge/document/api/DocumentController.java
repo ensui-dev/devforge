@@ -1,7 +1,9 @@
 package com.devforge.document.api;
 
 import com.devforge.document.application.CreateDocumentRequest;
+import com.devforge.document.application.DocumentHistoryService;
 import com.devforge.document.application.DocumentResponse;
+import com.devforge.document.application.DocumentRevisionResponse;
 import com.devforge.document.application.DocumentService;
 import com.devforge.document.application.DocumentSummaryResponse;
 import com.devforge.document.application.UpdateDocumentRequest;
@@ -37,9 +39,14 @@ import java.util.UUID;
 public class DocumentController {
 
     private final DocumentService documentService;
+    private final DocumentHistoryService historyService;
 
-    public DocumentController(DocumentService documentService) {
+    public DocumentController(
+            DocumentService documentService,
+            DocumentHistoryService historyService
+    ) {
         this.documentService = documentService;
+        this.historyService = historyService;
     }
 
     @GetMapping
@@ -118,5 +125,52 @@ public class DocumentController {
             @CurrentUser UUID userId
     ) {
         documentService.delete(workspaceId, documentId, userId);
+    }
+
+    /**
+     * What this document has said over time, newest first.
+     *
+     * <p>Bodies are omitted; a list of fifty revisions of a long page would
+     * otherwise ship the whole document fifty times to render a list of dates.
+     */
+    @GetMapping("/{documentId}/revisions")
+    @Operation(summary = "List a document's revisions")
+    public PageResponse<DocumentRevisionResponse> revisions(
+            @PathVariable UUID workspaceId,
+            @PathVariable UUID documentId,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "25") @Min(1) @Max(100) int size,
+            @CurrentUser UUID userId
+    ) {
+        return historyService.history(
+                workspaceId, documentId, userId, PageRequest.of(page, size));
+    }
+
+    @GetMapping("/{documentId}/revisions/{revision}")
+    @Operation(summary = "Read one revision in full, for viewing or diffing")
+    public DocumentRevisionResponse revision(
+            @PathVariable UUID workspaceId,
+            @PathVariable UUID documentId,
+            @PathVariable @Min(1) int revision,
+            @CurrentUser UUID userId
+    ) {
+        return historyService.revision(workspaceId, documentId, revision, userId);
+    }
+
+    /**
+     * Puts an earlier revision's content back.
+     *
+     * <p>Appends a new revision rather than rewinding, so the restore itself is
+     * visible in history and can be undone the same way.
+     */
+    @PostMapping("/{documentId}/revisions/{revision}/restore")
+    @Operation(summary = "Restore an earlier revision as a new one")
+    public DocumentResponse restore(
+            @PathVariable UUID workspaceId,
+            @PathVariable UUID documentId,
+            @PathVariable @Min(1) int revision,
+            @CurrentUser UUID userId
+    ) {
+        return historyService.restore(workspaceId, documentId, revision, userId);
     }
 }

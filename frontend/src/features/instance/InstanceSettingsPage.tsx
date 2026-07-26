@@ -134,6 +134,9 @@ export function InstanceSettingsPage() {
           </p>
         </div>
         <div className="page-header__actions">
+          <Link className="instance__back" to="/instance/activity">
+            Activity log
+          </Link>
           <Link className="instance__back" to="/app">
             Back to workspaces
           </Link>

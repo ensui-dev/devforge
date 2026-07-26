@@ -1,5 +1,8 @@
 package com.devforge.workspace.application;
 
+import com.devforge.audit.contract.AuditEntry;
+import com.devforge.audit.contract.AuditAction;
+import com.devforge.audit.contract.AuditTrail;
 import com.devforge.shared.exception.DuplicateResourceException;
 import com.devforge.workspace.contract.WorkspaceAccess;
 import com.devforge.workspace.contract.WorkspaceRef;
@@ -38,6 +41,9 @@ class WorkspaceServiceTest {
 
     @Mock
     private WorkspaceAccess workspaceAccess;
+
+    @Mock
+    private AuditTrail auditTrail;
 
     @InjectMocks
     private WorkspaceService workspaceService;
@@ -159,11 +165,33 @@ class WorkspaceServiceTest {
     @Test
     void deleteRequiresOwnership() {
         givenAccess(WorkspaceRole.OWNER);
+        // Deleting now loads the workspace first, to record what it was called:
+        // an audit entry naming only a UUID would defeat the point of keeping one.
+        when(workspaceRepository.findById(workspace.getId())).thenReturn(Optional.of(workspace));
 
         workspaceService.delete(workspace.getId(), userId);
 
         verify(workspaceAccess).requireAccess(workspace.getId(), userId, WorkspaceRole.OWNER);
         verify(workspaceRepository).deleteById(workspace.getId());
+    }
+
+    /**
+     * The deletion entry must outlive the workspace. Audit rows carry no foreign
+     * key to workspaces precisely so that deleting one cannot delete the evidence
+     * that it happened.
+     */
+    @Test
+    void recordsWhoDeletedTheWorkspaceAndWhatItWasCalled() {
+        givenAccess(WorkspaceRole.OWNER);
+        when(workspaceRepository.findById(workspace.getId())).thenReturn(Optional.of(workspace));
+
+        workspaceService.delete(workspace.getId(), userId);
+
+        ArgumentCaptor<AuditEntry> entry = ArgumentCaptor.forClass(AuditEntry.class);
+        verify(auditTrail).record(org.mockito.ArgumentMatchers.eq(userId), entry.capture());
+        assertThat(entry.getValue().action()).isEqualTo(AuditAction.WORKSPACE_DELETED);
+        assertThat(entry.getValue().targetLabel()).isEqualTo(workspace.getName());
+        assertThat(entry.getValue().workspaceId()).isEqualTo(workspace.getId());
     }
 
     private void givenAccess(WorkspaceRole role) {

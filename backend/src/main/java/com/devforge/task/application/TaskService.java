@@ -1,5 +1,9 @@
 package com.devforge.task.application;
 
+import com.devforge.audit.contract.AuditAction;
+import com.devforge.audit.contract.AuditEntry;
+import com.devforge.audit.contract.AuditTargetType;
+import com.devforge.audit.contract.AuditTrail;
 import com.devforge.document.contract.DocumentDirectory;
 import com.devforge.shared.exception.DomainValidationException;
 import com.devforge.shared.exception.DuplicateResourceException;
@@ -37,6 +41,7 @@ public class TaskService {
     private final WorkspaceAccess workspaceAccess;
     private final DocumentDirectory documentDirectory;
     private final BoardAssembler boardAssembler;
+    private final AuditTrail auditTrail;
 
     public TaskService(
             TaskRepository taskRepository,
@@ -44,8 +49,10 @@ public class TaskService {
             TaskDocumentLinkRepository linkRepository,
             WorkspaceAccess workspaceAccess,
             DocumentDirectory documentDirectory,
-            BoardAssembler boardAssembler
+            BoardAssembler boardAssembler,
+            AuditTrail auditTrail
     ) {
+        this.auditTrail = auditTrail;
         this.taskRepository = taskRepository;
         this.boardRepository = boardRepository;
         this.linkRepository = linkRepository;
@@ -82,6 +89,14 @@ public class TaskService {
             linkRepository.save(new TaskDocumentLink(task.getId(), documentId));
         }
 
+        auditTrail.record(userId, AuditEntry
+                .of(AuditAction.TASK_CREATED, AuditTargetType.TASK)
+                .target(task.getId(), task.getTitle())
+                .inWorkspace(workspaceId)
+                .with("column", column.getName())
+                .with("priority", task.getPriority())
+                .with("linkedDocuments", request.linkedDocumentIds().size()));
+
         return boardAssembler.assembleTask(workspaceId, task);
     }
 
@@ -99,7 +114,20 @@ public class TaskService {
         Task task = loadTask(boardId, taskId);
         requireAssigneeIsMember(workspaceId, request.assigneeId());
 
+        String previousTitle = task.getTitle();
+        var previousPriority = task.getPriority();
+        UUID previousAssignee = task.getAssigneeId();
+
         task.revise(request.title(), request.description(), request.priority(), request.assigneeId());
+
+        auditTrail.record(userId, AuditEntry
+                .of(AuditAction.TASK_UPDATED, AuditTargetType.TASK)
+                .target(task.getId(), task.getTitle())
+                .inWorkspace(workspaceId)
+                .changed("title", previousTitle, task.getTitle())
+                .changed("priority", previousPriority, task.getPriority())
+                .changed("assignee", previousAssignee, task.getAssigneeId()));
+
         return boardAssembler.assembleTask(workspaceId, task);
     }
 
@@ -140,6 +168,18 @@ public class TaskService {
                     request.position());
         }
 
+        // A move between columns is the event people actually look for in a
+        // board's history; a reorder within one column is noise by comparison,
+        // so the two are distinguishable by the presence of `from`.
+        auditTrail.record(userId, AuditEntry
+                .of(AuditAction.TASK_MOVED, AuditTargetType.TASK)
+                .target(task.getId(), task.getTitle())
+                .inWorkspace(workspaceId)
+                .changed("column",
+                        board.requireColumn(sourceColumnId).getName(),
+                        targetColumn.getName())
+                .with("position", request.position()));
+
         return boardAssembler.assembleTask(workspaceId, task);
     }
 
@@ -150,6 +190,11 @@ public class TaskService {
 
         Task task = loadTask(boardId, taskId);
         UUID columnId = task.getColumnId();
+
+        auditTrail.record(userId, AuditEntry
+                .of(AuditAction.TASK_DELETED, AuditTargetType.TASK)
+                .target(task.getId(), task.getTitle())
+                .inWorkspace(workspaceId));
 
         taskRepository.delete(task);
         // Flush the delete before renumbering so the compaction sees the column
@@ -178,6 +223,13 @@ public class TaskService {
         }
 
         linkRepository.save(new TaskDocumentLink(taskId, request.documentId()));
+
+        auditTrail.record(userId, AuditEntry
+                .of(AuditAction.TASK_DOCUMENT_LINKED, AuditTargetType.TASK)
+                .target(task.getId(), task.getTitle())
+                .inWorkspace(workspaceId)
+                .with("documentId", request.documentId()));
+
         return boardAssembler.assembleTask(workspaceId, task);
     }
 
@@ -195,6 +247,12 @@ public class TaskService {
         Task task = loadTask(boardId, taskId);
         TaskDocumentLink link = linkRepository.findByTaskIdAndDocumentId(taskId, documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task document link", documentId));
+
+        auditTrail.record(userId, AuditEntry
+                .of(AuditAction.TASK_DOCUMENT_UNLINKED, AuditTargetType.TASK)
+                .target(task.getId(), task.getTitle())
+                .inWorkspace(workspaceId)
+                .with("documentId", documentId));
 
         linkRepository.delete(link);
         linkRepository.flush();

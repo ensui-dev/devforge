@@ -15,6 +15,7 @@ import { DOCUMENT_TYPE_LABELS, roleAtLeast, type DocumentType } from '../../shar
 import { formatRelative } from '../../shared/utils/slugify'
 import { useCurrentWorkspace } from '../workspaces/WorkspaceContext'
 import { LinkDocumentDialog } from './LinkDocumentDialog'
+import { DocumentHistoryDialog } from './DocumentHistoryDialog'
 import { ReferenceRail } from './ReferenceRail'
 import {
   useDeleteDocument,
@@ -50,6 +51,7 @@ export function DocumentDetailPage() {
   const [saveError, setSaveError] = useState<unknown>(null)
   const [linkOpen, setLinkOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   const canWrite = roleAtLeast(workspace.callerRole, 'MEMBER')
 
@@ -155,6 +157,15 @@ export function DocumentDetailPage() {
           <p className="doc-detail__meta">Updated {formatRelative(document.updatedAt)}</p>
         </div>
 
+        {!canWrite ? (
+          <div className="page-header__actions">
+            {/* Reading who changed what needs no write access. */}
+            <Button variant="ghost" onClick={() => setHistoryOpen(true)}>
+              History
+            </Button>
+          </div>
+        ) : null}
+
         {canWrite ? (
           <div className="page-header__actions">
             {editing ? (
@@ -170,6 +181,9 @@ export function DocumentDetailPage() {
               <>
                 <Button variant="danger" size="sm" onClick={() => setConfirmDelete(true)}>
                   Delete
+                </Button>
+                <Button variant="ghost" onClick={() => setHistoryOpen(true)}>
+                  History
                 </Button>
                 <Button variant="secondary" onClick={() => setEditing(true)}>
                   Edit
@@ -261,6 +275,19 @@ export function DocumentDetailPage() {
           onAdd={() => setLinkOpen(true)}
         />
       </div>
+
+      {/* Mounted only while open: a closed dialog keeps its fields in the
+          document, and this one's labels would collide with the editor's. */}
+      {historyOpen ? (
+        <DocumentHistoryDialog
+          workspaceId={workspace.id}
+          documentId={documentId}
+          currentContent={document.content}
+          canWrite={canWrite}
+          open
+          onClose={() => setHistoryOpen(false)}
+        />
+      ) : null}
 
       <LinkDocumentDialog
         workspaceId={workspace.id}

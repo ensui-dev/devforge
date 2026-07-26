@@ -1,6 +1,8 @@
 import { apiRequest, queryString } from './client'
 import type {
   AdminInstance,
+  AuditAction,
+  AuditEvent,
   AuthenticationResult,
   Board,
   BoardSummary,
@@ -10,6 +12,7 @@ import type {
   DocumentDetail,
   DocumentPayload,
   DocumentReference,
+  DocumentRevision,
   DocumentSummary,
   DocumentType,
   Handbook,
@@ -217,6 +220,37 @@ export const handbookApi = {
     apiRequest<Handbook>(`/api/public/docs/${handle}/${workspaceSlug}`),
   page: (handle: string, workspaceSlug: string, documentSlug: string) =>
     apiRequest<PublicDocument>(`/api/public/docs/${handle}/${workspaceSlug}/${documentSlug}`),
+}
+
+/**
+ * A document's history. Bodies are omitted from the list and present on a single
+ * revision, so a history panel costs one small request rather than the whole
+ * document once per revision.
+ */
+export const revisionApi = {
+  list: (workspaceId: string, documentId: string, options: { page?: number; size?: number } = {}) =>
+    apiRequest<Page<DocumentRevision>>(
+      `/api/workspaces/${workspaceId}/documents/${documentId}/revisions${queryString(options)}`,
+    ),
+  get: (workspaceId: string, documentId: string, revision: number) =>
+    apiRequest<DocumentRevision>(
+      `/api/workspaces/${workspaceId}/documents/${documentId}/revisions/${revision}`,
+    ),
+  restore: (workspaceId: string, documentId: string, revision: number) =>
+    apiRequest<DocumentDetail>(
+      `/api/workspaces/${workspaceId}/documents/${documentId}/revisions/${revision}/restore`,
+      { method: 'POST' },
+    ),
+}
+
+/** Who changed what. */
+export const activityApi = {
+  forWorkspace: (
+    workspaceId: string,
+    options: { action?: AuditAction; page?: number; size?: number } = {},
+  ) => apiRequest<Page<AuditEvent>>(`/api/workspaces/${workspaceId}/activity${queryString(options)}`),
+  forInstance: (options: { action?: AuditAction; page?: number; size?: number } = {}) =>
+    apiRequest<Page<AuditEvent>>(`/api/instance/activity${queryString(options)}`),
 }
 
 export const publicationApi = {

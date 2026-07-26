@@ -1,5 +1,9 @@
 package com.devforge.workspace.application;
 
+import com.devforge.audit.contract.AuditAction;
+import com.devforge.audit.contract.AuditEntry;
+import com.devforge.audit.contract.AuditTargetType;
+import com.devforge.audit.contract.AuditTrail;
 import com.devforge.document.contract.DocumentDirectory;
 import com.devforge.identity.contract.UserDirectory;
 import com.devforge.instance.contract.InstancePolicy;
@@ -30,14 +34,17 @@ public class PublicationService {
     private final DocumentDirectory documentDirectory;
     private final UserDirectory userDirectory;
     private final InstancePolicy instancePolicy;
+    private final AuditTrail auditTrail;
 
     public PublicationService(
             WorkspaceRepository workspaceRepository,
             WorkspaceAccess workspaceAccess,
             DocumentDirectory documentDirectory,
             UserDirectory userDirectory,
-            InstancePolicy instancePolicy
+            InstancePolicy instancePolicy,
+            AuditTrail auditTrail
     ) {
+        this.auditTrail = auditTrail;
         this.workspaceRepository = workspaceRepository;
         this.workspaceAccess = workspaceAccess;
         this.documentDirectory = documentDirectory;
@@ -78,6 +85,17 @@ public class PublicationService {
         } else {
             workspace.unpublish();
         }
+
+        // Publishing changes who can read this workspace's documentation, so it is
+        // among the most consequential things anyone can do to it.
+        auditTrail.record(userId, AuditEntry
+                .of(request.published()
+                                ? AuditAction.WORKSPACE_PUBLISHED
+                                : AuditAction.WORKSPACE_UNPUBLISHED,
+                        AuditTargetType.WORKSPACE)
+                .target(workspace.getId(), workspace.getName())
+                .inWorkspace(workspaceId)
+                .with("publicPages", documentDirectory.countByVisibility(workspaceId).publicPages()));
 
         return respond(workspace);
     }

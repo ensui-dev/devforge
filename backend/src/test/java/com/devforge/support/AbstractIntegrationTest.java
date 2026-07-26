@@ -136,6 +136,15 @@ public abstract class AbstractIntegrationTest {
                 .asText());
     }
 
+    /** Adds an existing account to a workspace with the given role. */
+    protected void addMember(TestUser actor, UUID workspaceId, String email, String role)
+            throws Exception {
+        mockMvc.perform(authed(post("/api/workspaces/{workspaceId}/members", workspaceId), actor)
+                        .content("""
+                                {"email":"%s","role":"%s"}""".formatted(email, role)))
+                .andExpect(status().isCreated());
+    }
+
     /**
      * Promotes an account to instance administrator.
      *

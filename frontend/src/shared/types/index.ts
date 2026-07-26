@@ -397,3 +397,68 @@ export interface CreateAccountPayload {
   password: string
   instanceAdmin: boolean
 }
+
+/* Attribution and history. Until these existed a change left only a timestamp
+   and a version number behind — you could see that something moved, never who
+   moved it or what it said before. */
+
+export type RevisionReason = 'CREATED' | 'UPDATED' | 'RESTORED'
+
+export interface DocumentRevision {
+  /** 1-based and contiguous, so it can be named to a reader. */
+  revision: number
+  title: string
+  slug: string
+  /** Omitted from list responses; present when a single revision is fetched. */
+  content: string | null
+  documentType: DocumentType
+  internal: boolean
+  reason: RevisionReason
+  /** Set when a restore produced this revision: the one it was taken from. */
+  restoredFrom: number | null
+  authorId: string | null
+  /**
+   * Who wrote it, as they were called at the time. Null for revisions backfilled
+   * when history was introduced — nothing recorded an author then.
+   */
+  authorLabel: string | null
+  createdAt: string
+}
+
+export type AuditAction =
+  | 'WORKSPACE_CREATED' | 'WORKSPACE_UPDATED' | 'WORKSPACE_DELETED'
+  | 'WORKSPACE_PUBLISHED' | 'WORKSPACE_UNPUBLISHED'
+  | 'MEMBER_ADDED' | 'MEMBER_ROLE_CHANGED' | 'MEMBER_REMOVED'
+  | 'DOCUMENT_CREATED' | 'DOCUMENT_UPDATED' | 'DOCUMENT_DELETED'
+  | 'DOCUMENT_RESTORED' | 'DOCUMENT_LINKED' | 'DOCUMENT_UNLINKED'
+  | 'BOARD_CREATED' | 'BOARD_UPDATED' | 'BOARD_DELETED'
+  | 'COLUMN_CREATED' | 'COLUMN_UPDATED' | 'COLUMN_DELETED'
+  | 'TASK_CREATED' | 'TASK_UPDATED' | 'TASK_MOVED' | 'TASK_DELETED'
+  | 'TASK_DOCUMENT_LINKED' | 'TASK_DOCUMENT_UNLINKED'
+  | 'INSTANCE_SET_UP' | 'INSTANCE_SETTINGS_CHANGED'
+  | 'INSTANCE_ADMIN_GRANTED' | 'INSTANCE_ADMIN_REVOKED' | 'ACCOUNT_CREATED'
+
+export type AuditTargetType =
+  | 'WORKSPACE' | 'MEMBER' | 'DOCUMENT' | 'BOARD' | 'COLUMN' | 'TASK'
+  | 'INSTANCE' | 'ACCOUNT'
+
+/** One field that moved, as the log records it. */
+export interface AuditChange {
+  from: string
+  to: string
+}
+
+export interface AuditEvent {
+  id: string
+  occurredAt: string
+  actorId: string | null
+  /** Null when the event had no signed-in actor, such as first-run setup. */
+  actorLabel: string | null
+  action: AuditAction
+  targetType: AuditTargetType
+  targetId: string | null
+  targetLabel: string | null
+  workspaceId: string | null
+  /** Shape varies by action: changed fields, roles, counts. */
+  detail: Record<string, AuditChange | string | number | boolean>
+}
