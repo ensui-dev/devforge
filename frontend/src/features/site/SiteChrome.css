@@ -146,3 +146,31 @@
     font-size: var(--text-xs);
   }
 }
+
+/* The source link. Given the mark so it reads as the universal signal it is,
+   rather than as one more word in the navigation. */
+.site-nav__source {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.site-foot__about {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 46ch;
+}
+
+.site-foot__license {
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+}
+
+.site-foot__license a {
+  color: var(--ink-muted);
+  text-decoration-color: color-mix(in srgb, var(--ink-muted) 40%, transparent);
+}
+
+.site-foot__license a:hover {
+  color: var(--trace);
+}

@@ -1,6 +1,8 @@
 import { Link, NavLink } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { useAuth } from '../../shared/auth/useAuth'
+import { GitHubMark } from '../../shared/components/GitHubMark'
+import { PROJECT } from '../../shared/project'
 import { InstanceMark } from '../../shared/instance/InstanceMark'
 import { useInstance } from '../../shared/instance/useInstance'
 import './SiteChrome.css'
@@ -52,6 +54,15 @@ export function SiteChrome({ children }: { children: ReactNode }) {
                 Handbook
               </NavLink>
             ) : null}
+            <a
+              className="site-nav__link site-nav__source"
+              href={PROJECT.repository}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              <GitHubMark />
+              Source
+            </a>
             {isAuthenticated ? (
               <Link className="site-nav__link site-nav__cta" to="/app">
                 Open workspaces
@@ -79,10 +90,22 @@ export function SiteChrome({ children }: { children: ReactNode }) {
 
       <footer className="site-foot">
         <div className="site-foot__inner">
-          <p className="site-foot__note">
-            {instance.tagline ??
-              'DevForge keeps documentation beside delivery, and links the two. The handbook is a live workspace on this instance — editing it updates these pages.'}
-          </p>
+          <div className="site-foot__about">
+            <p className="site-foot__note">
+              {instance.tagline ??
+                'DevForge keeps documentation beside delivery, and links the two. The handbook is a live workspace on this instance — editing it updates these pages.'}
+            </p>
+            <p className="site-foot__license">
+            <a href={PROJECT.repository} target="_blank" rel="noreferrer noopener">
+              {PROJECT.name}
+            </a>{' '}
+            is free and open source software, licensed under{' '}
+            <a href={PROJECT.licenseUrl} target="_blank" rel="noreferrer noopener">
+              {PROJECT.license}
+            </a>
+              . Run your own copy.
+            </p>
+          </div>
           <nav className="site-foot__links" aria-label="Footer">
             <Link to="/">Overview</Link>
             {showDocs ? (

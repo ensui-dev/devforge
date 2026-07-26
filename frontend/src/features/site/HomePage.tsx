@@ -4,6 +4,8 @@ import { handbookApi } from '../../shared/api/endpoints'
 import { queryKeys } from '../../shared/api/queryKeys'
 import { useAuth } from '../../shared/auth/useAuth'
 import { useInstance } from '../../shared/instance/useInstance'
+import { GitHubMark } from '../../shared/components/GitHubMark'
+import { CLONE_COMMAND, PROJECT } from '../../shared/project'
 import { SiteChrome } from './SiteChrome'
 import './HomePage.css'
 
@@ -89,7 +91,9 @@ export function HomePage() {
     <SiteChrome>
       <section className="wrap hero">
         <div>
-          <p className="mono-label hero__eyebrow">Documentation + delivery</p>
+          <p className="mono-label hero__eyebrow">
+            Open source · documentation + delivery
+          </p>
           <h1 className="hero__title">
             Know what breaks
             <br />
@@ -244,6 +248,84 @@ export function HomePage() {
           </Link>
         </section>
       ) : null}
+
+      <section className="wrap band" id="open-source">
+        <div className="band__head">
+          <p className="mono-label">Open source</p>
+          <h2 className="band__title">The whole thing is yours.</h2>
+          <p className="band__lead">
+            {instance.name} is one deployment of DevForge, not a service you are renting.
+            The source is {PROJECT.license} licensed and built to be self-hosted: clone it,
+            read it, change it, run it on your own hardware, and keep your team&rsquo;s
+            documentation on a machine you control.
+          </p>
+        </div>
+
+        {/* The most direct statement the page can make: the command itself. */}
+        <div className="clone">
+          <p className="mono-label clone__label">Run your own</p>
+          <pre className="clone__block">
+            <code>
+              <span className="clone__line">
+                <span className="clone__prompt">$</span> {CLONE_COMMAND}
+              </span>
+              <span className="clone__line">
+                <span className="clone__prompt">$</span> cd devforge
+              </span>
+              <span className="clone__line">
+                <span className="clone__prompt">$</span> docker compose --profile full up -d
+              </span>
+            </code>
+          </pre>
+          <p className="clone__caption">
+            First boot opens a setup wizard: name it, brand it, decide who may join, and
+            create the account that administers it. Nothing about an instance is baked
+            into the build.
+          </p>
+        </div>
+
+        <ul className="pledges">
+          <li className="pledge">
+            <h3 className="pledge__title">No telemetry</h3>
+            <p className="pledge__body">
+              No analytics, no phone-home, no CDN. The application makes no outbound
+              request of any kind — the only network traffic is between your browser and
+              your server.
+            </p>
+          </li>
+          <li className="pledge">
+            <h3 className="pledge__title">Your data stays put</h3>
+            <p className="pledge__body">
+              One PostgreSQL database, yours. A logo lives in a table rather than object
+              storage, so <code>pg_dump</code> is a complete backup.
+            </p>
+          </li>
+          <li className="pledge">
+            <h3 className="pledge__title">Nothing held back</h3>
+            <p className="pledge__body">
+              No paid tier, no feature gated behind a licence key. What runs here is what
+              is in the repository.
+            </p>
+          </li>
+        </ul>
+
+        <div className="hero__actions">
+          <a
+            className="cta cta--primary"
+            href={PROJECT.repository}
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            <GitHubMark size={16} />
+            View the source
+          </a>
+          {showDocs ? (
+            <Link className="cta cta--secondary" to={docsPath('self-hosting')}>
+              Read the self-hosting guide
+            </Link>
+          ) : null}
+        </div>
+      </section>
     </SiteChrome>
   )
 }

@@ -44,6 +44,24 @@ describe('SiteChrome', () => {
     )
   })
 
+  /**
+   * Being open source is part of what this project is, not a footnote — so the
+   * route to the source is on every public page, whatever the instance has
+   * switched off.
+   */
+  it('links to the source and names the licence on every page', () => {
+    renderWithProviders(<SiteChrome>content</SiteChrome>, {
+      withAuth: true,
+      instance: { publicDocsEnabled: false, registrationMode: 'CLOSED' },
+    })
+
+    const source = screen.getByRole('link', { name: /source/i })
+    expect(source).toHaveAttribute('href', 'https://github.com/ensui-dev/devforge')
+    expect(source).toHaveAttribute('rel', expect.stringContaining('noopener'))
+    expect(screen.getByRole('link', { name: 'MIT' })).toBeInTheDocument()
+    expect(screen.getByText(/free and open source software/)).toBeInTheDocument()
+  })
+
   /** A closed instance refuses every sign-up, so inviting one is a dead end. */
   it('does not offer to create an account on a closed instance', () => {
     renderWithProviders(<SiteChrome>content</SiteChrome>, {

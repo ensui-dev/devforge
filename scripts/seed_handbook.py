@@ -128,12 +128,16 @@ A workspace can publish its documentation as a public site at
 `/docs/your-handle/your-slug` — readable by anyone, no account needed, while your
 boards and team list stay private. This handbook is one of those sites.
 
-## Running your own
+## It is open source
 
-DevForge is open source under the MIT licence, and self-hosting is the intended
-way to use it. A fresh deployment configures itself through a first-run setup
-screen: name, mark, accent, who may sign up, and the account that will administer
-it. See **Self-hosting DevForge**.
+DevForge is free software under the MIT licence, at
+<https://github.com/ensui-dev/devforge>. This instance is one deployment of it,
+not a service you are renting — no paid tier, no telemetry, and self-hosting is
+the intended way to use it. A fresh deployment configures itself through a
+first-run setup screen: name, mark, accent, who may sign up, and the account that
+will administer it.
+
+See **DevForge is open source**, then **Self-hosting DevForge**.
 
 ## Where to go next
 
@@ -1583,6 +1587,69 @@ living in someone's memory.
 """,
     },
     {
+        "slug": "open-source",
+        "title": "DevForge is open source",
+        "type": "GENERAL",
+        "content": """\
+# DevForge is open source
+
+DevForge is free software under the **MIT licence**. The source is at
+<https://github.com/ensui-dev/devforge>, and what runs on this instance is what is
+in that repository.
+
+## What that means here
+
+You are reading this on one deployment. It is not a hosted service anybody is
+renting to you — it is a copy of an open-source project, running on someone's
+server. You can run your own, and nothing is withheld from it.
+
+| | |
+|---|---|
+| **Licence** | MIT — use it commercially, fork it, relicense your changes |
+| **No paid tier** | Nothing is gated behind a licence key or an edition |
+| **No telemetry** | No analytics, no phone-home, no CDN. The application makes no outbound request of any kind |
+| **Your data** | One PostgreSQL database you control; `pg_dump` is a complete backup |
+
+The no-telemetry claim is checkable, which is the point of shipping the source:
+the frontend loads no external asset and declares no analytics dependency, and the
+backend has no HTTP client at all.
+
+## Run your own copy
+
+```bash
+git clone https://github.com/ensui-dev/devforge.git
+cd devforge
+cp .env.example .env
+openssl rand -base64 48        # paste as DEVFORGE_JWT_SECRET
+docker compose --profile full up -d
+```
+
+First boot opens a setup wizard. See **Self-hosting DevForge** for what it asks
+and why, and **First-run setup** for the one step that cannot be repeated.
+
+## Contributing
+
+Issues and pull requests are welcome at
+<https://github.com/ensui-dev/devforge/issues>.
+
+Two things are worth knowing before you send a change. The module boundaries are
+enforced by ArchUnit, so importing another module's internals fails the build
+rather than review. And tests here are expected to fail when the thing they cover
+breaks — before trusting a new one, break the code and watch it go red. Several
+tests carry a comment naming the specific bug they were written against; those
+comments are the point.
+
+`CONTRIBUTING.md` in the repository has the rest.
+
+## Reporting a security problem
+
+Privately, through GitHub security advisories rather than a public issue. The
+repository's `SECURITY.md` also lists what an operator has to get right — changing
+the token signing key, finishing setup promptly, and keeping more than one
+administrator.
+""",
+    },
+    {
         "slug": "self-hosting",
         "title": "Self-hosting DevForge",
         "type": "PROCEDURE",
@@ -1597,7 +1664,7 @@ single-person notebook. The difference is a row in the database.
 ## Bring it up
 
 ```bash
-git clone <your fork>
+git clone https://github.com/ensui-dev/devforge.git
 cd devforge
 cp .env.example .env
 openssl rand -base64 48        # paste as DEVFORGE_JWT_SECRET in .env
@@ -1797,6 +1864,8 @@ REFERENCES: list[tuple[str, str, str]] = [
     ("use-case-decisions", "DEPENDS_ON", "document-types"),
     ("use-case-runbooks", "DEPENDS_ON", "reference-graph"),
     ("use-case-runbooks", "RELATED", "troubleshooting"),
+    ("open-source", "DOCUMENTS", "welcome"),
+    ("self-hosting", "DEPENDS_ON", "open-source"),
     ("self-hosting", "DEPENDS_ON", "tech-stack"),
     ("self-hosting", "RELATED", "running-locally"),
     ("first-run-setup", "DEPENDS_ON", "self-hosting"),
@@ -1819,6 +1888,10 @@ TASKS: list[tuple[str, str, str, str, list[str]]] = [
      "Bring up the containers and sign in. If anything fights you, the troubleshooting page "
      "covers the usual causes.",
      ["running-locally", "troubleshooting"]),
+    ("Read first", "Know what you are running", "MEDIUM",
+     "DevForge is MIT-licensed open source with no telemetry and no paid tier. Worth two "
+     "minutes before you decide to depend on it.",
+     ["open-source"]),
     ("Read first", "Claim the instance you are running", "CRITICAL",
      "Setup runs once and refuses forever afterwards. Finish it before the deployment is "
      "reachable by anyone else, and appoint a second operator so one lost password cannot "

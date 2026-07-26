@@ -40,6 +40,9 @@
 .cta {
   display: inline-flex;
   align-items: center;
+  /* Spaces the GitHub mark from its label on the source button; harmless on the
+     CTAs that carry no icon. */
+  gap: 0.45rem;
   padding: 0.5625rem 1.125rem;
   border: 1px solid transparent;
   border-radius: var(--radius);
@@ -341,3 +344,88 @@
     padding-top: var(--space-6);
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Open source
+
+   The clone block is the page's closing statement, so it is set as a real
+   terminal rather than a styled quote: the point is that it can be pasted.
+   --------------------------------------------------------------------------- */
+
+.clone {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.clone__label {
+  color: var(--ink-faint);
+}
+
+.clone__block {
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  overflow-x: auto;
+  background: var(--paper-sunken);
+  border: 1px solid var(--rule);
+  border-left: 2px solid var(--trace);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.9;
+  /* Long clone URLs must scroll inside the block, never widen the page. */
+  max-width: 100%;
+}
+
+.clone__block code {
+  display: grid;
+  font-size: inherit;
+}
+
+.clone__line {
+  white-space: pre;
+}
+
+.clone__prompt {
+  color: var(--trace);
+  user-select: none;
+  margin-right: 0.5rem;
+}
+
+.clone__caption {
+  max-width: 60ch;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+/* The three commitments, stated flatly. No icons — they would soften claims
+   that are meant to be checkable. */
+.pledges {
+  list-style: none;
+  margin: var(--space-6) 0 var(--space-5);
+  padding: 0;
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+
+.pledge {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--rule-strong);
+}
+
+.pledge__title {
+  font-size: var(--text-base);
+  margin-bottom: var(--space-2);
+}
+
+.pledge__body {
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.pledge__body code {
+  font-size: 0.92em;
+  color: var(--ink);
+}
+
