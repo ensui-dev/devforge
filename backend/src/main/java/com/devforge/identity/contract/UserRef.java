@@ -9,5 +9,5 @@ import java.util.UUID;
  * module outside {@code identity} can navigate or mutate identity state — and the
  * password hash can never leak into another module's response.
  */
-public record UserRef(UUID id, String email, String displayName) {
+public record UserRef(UUID id, String email, String displayName, String handle) {
 }

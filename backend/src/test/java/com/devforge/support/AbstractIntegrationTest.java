@@ -43,6 +43,9 @@ public abstract class AbstractIntegrationTest {
     @Autowired
     private DatabaseCleaner databaseCleaner;
 
+    @Autowired
+    private InstanceAdminSupport instanceAdminSupport;
+
     @BeforeEach
     void resetDatabase() {
         databaseCleaner.clean();
@@ -71,6 +74,9 @@ public abstract class AbstractIntegrationTest {
                 UUID.fromString(json.get("user").get("id").asText()),
                 email,
                 displayName,
+                // The handle namespaces this user's workspaces, so public paths in
+                // tests are built from it rather than hardcoded.
+                json.get("user").get("handle").asText(),
                 json.get("accessToken").asText()
         );
     }
@@ -130,13 +136,25 @@ public abstract class AbstractIntegrationTest {
                 .asText());
     }
 
+    /**
+     * Promotes an account to instance administrator.
+     *
+     * <p>Done directly rather than through an endpoint: there is no API for granting
+     * instance administration, because the only ways to become one are running setup
+     * or being promoted by an operator with database access.
+     */
+    protected void makeInstanceAdmin(TestUser user) {
+        instanceAdminSupport.promote(user.id());
+    }
+
     /** Creates a board seeded with default columns and returns the full response. */
     protected JsonNode createBoard(TestUser user, UUID workspaceId, String name) throws Exception {
         return postForCreated(
                 user, "/api/workspaces/{workspaceId}/boards", new BoardPayload(name), workspaceId);
     }
 
-    protected record TestUser(UUID id, String email, String displayName, String token) {
+    protected record TestUser(
+            UUID id, String email, String displayName, String handle, String token) {
     }
 
     private record WorkspacePayload(String name, String description, String slug) {

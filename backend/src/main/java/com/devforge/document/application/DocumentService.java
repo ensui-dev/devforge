@@ -88,7 +88,8 @@ public class DocumentService {
                 request.title(),
                 request.slug(),
                 request.content(),
-                request.documentType()
+                request.documentType(),
+                request.isInternal()
         ));
         return DocumentResponse.from(document);
     }
@@ -108,7 +109,12 @@ public class DocumentService {
             throw new DuplicateResourceException("Document slug already exists: " + request.slug());
         }
 
-        document.revise(request.title(), request.slug(), request.content(), request.documentType());
+        document.revise(
+                request.title(),
+                request.slug(),
+                request.content(),
+                request.documentType(),
+                request.isInternal());
         return DocumentResponse.from(document);
     }
 

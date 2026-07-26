@@ -20,6 +20,9 @@ import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
  */
 class ArchitectureTest {
 
+    /** Every feature module whose internals must stay private to it. */
+    private static final String[] MODULES = {"identity", "workspace", "document", "task", "instance"};
+
     private static final JavaClasses PRODUCTION_CLASSES = new ClassFileImporter()
             .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
             .importPackages("com.devforge");
@@ -30,10 +33,10 @@ class ArchitectureTest {
      */
     @Test
     void modulesTalkOnlyThroughPublishedContracts() {
-        for (String module : new String[]{"identity", "workspace", "document", "task"}) {
+        for (String module : MODULES) {
             ArchRule rule = noClasses()
                     .that().resideOutsideOfPackage("com.devforge.%s..".formatted(module))
-                    .and().resideInAPackage("com.devforge.(identity|workspace|document|task)..")
+                    .and().resideInAPackage("com.devforge.(identity|workspace|document|task|instance)..")
                     .should().dependOnClassesThat()
                     .resideInAnyPackage(
                             "com.devforge.%s.domain..".formatted(module),
@@ -55,10 +58,10 @@ class ArchitectureTest {
      */
     @Test
     void applicationServicesAreNotSharedAcrossModules() {
-        for (String module : new String[]{"identity", "workspace", "document", "task"}) {
+        for (String module : MODULES) {
             noClasses()
                     .that().resideOutsideOfPackage("com.devforge.%s..".formatted(module))
-                    .and().resideInAPackage("com.devforge.(identity|workspace|document|task)..")
+                    .and().resideInAPackage("com.devforge.(identity|workspace|document|task|instance)..")
                     .should().dependOnClassesThat()
                     .resideInAPackage("com.devforge.%s.application..".formatted(module))
                     .because("cross-module calls must go through a contract interface")

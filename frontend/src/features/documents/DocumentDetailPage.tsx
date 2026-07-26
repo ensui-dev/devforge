@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { publicationApi } from '../../shared/api/endpoints'
 import { ApiError } from '../../shared/api/client'
 import { Badge } from '../../shared/components/Badge'
 import { Button } from '../../shared/components/Button'
@@ -31,6 +33,10 @@ export function DocumentDetailPage() {
   const { notify, notifyError } = useToast()
 
   const { data: document, isPending, error, refetch } = useDocument(workspace.id, documentId)
+  const { data: publication } = useQuery({
+    queryKey: ['workspaces', workspace.id, 'publication'],
+    queryFn: () => publicationApi.get(workspace.id),
+  })
   const { data: references = [] } = useDocumentReferences(workspace.id, documentId)
   const updateDocument = useUpdateDocument(workspace.id, documentId)
   const deleteDocument = useDeleteDocument(workspace.id)
@@ -40,6 +46,7 @@ export function DocumentDetailPage() {
   const [slug, setSlug] = useState('')
   const [content, setContent] = useState('')
   const [documentType, setDocumentType] = useState<DocumentType>('GENERAL')
+  const [internal, setInternal] = useState(false)
   const [saveError, setSaveError] = useState<unknown>(null)
   const [linkOpen, setLinkOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -53,6 +60,7 @@ export function DocumentDetailPage() {
       setSlug(document.slug)
       setContent(document.content)
       setDocumentType(document.documentType)
+      setInternal(document.internal)
     }
   }, [document])
 
@@ -83,6 +91,7 @@ export function DocumentDetailPage() {
         slug: slug.trim(),
         content,
         documentType,
+        internal,
       })
       notify('Document saved')
       setEditing(false)
@@ -96,6 +105,7 @@ export function DocumentDetailPage() {
     setSlug(document.slug)
     setContent(document.content)
     setDocumentType(document.documentType)
+    setInternal(document.internal)
     setSaveError(null)
     setEditing(false)
   }
@@ -126,6 +136,20 @@ export function DocumentDetailPage() {
           <div className="row row--wrap">
             <Badge tone="trace">{DOCUMENT_TYPE_LABELS[document.documentType]}</Badge>
             <span className="doc-detail__slug">/{document.slug}</span>
+            {/*
+              Whether this page is readable by anyone is worth stating on the page
+              itself, not only in workspace settings — the author needs to know
+              what they are writing into.
+            */}
+            {document.internal ? (
+              <Badge tone="neutral" title="Held back from the public site">
+                Internal
+              </Badge>
+            ) : publication?.published ? (
+              <Badge tone="success" title="Readable by anyone with the link">
+                Public
+              </Badge>
+            ) : null}
           </div>
           <h1 className="page-header__title">{document.title}</h1>
           <p className="doc-detail__meta">Updated {formatRelative(document.updatedAt)}</p>
@@ -193,6 +217,22 @@ export function DocumentDetailPage() {
                   ))}
                 </SelectField>
               </div>
+
+              <label className="visibility">
+                <input
+                  type="checkbox"
+                  checked={internal}
+                  onChange={(event) => setInternal(event.target.checked)}
+                />
+                <span className="visibility__body">
+                  <span className="visibility__label">Keep this page internal</span>
+                  <span className="visibility__hint">
+                    {publication?.published
+                      ? 'This workspace is published, so unchecked pages are readable by anyone with the link.'
+                      : 'Internal pages stay private even if this workspace is published later.'}
+                  </span>
+                </span>
+              </label>
 
               <TextAreaField
                 label="Content (Markdown)"

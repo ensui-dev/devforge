@@ -8,6 +8,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Version;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 /**
@@ -45,14 +46,25 @@ public abstract class BaseEntity {
 
     @PrePersist
     void onCreate() {
-        Instant now = Instant.now();
+        Instant now = now();
         this.createdAt = now;
         this.updatedAt = now;
     }
 
     @PreUpdate
     void onUpdate() {
-        this.updatedAt = Instant.now();
+        this.updatedAt = now();
+    }
+
+    /**
+     * Truncated to the precision PostgreSQL stores.
+     *
+     * <p>{@code Instant.now()} carries nanoseconds while {@code TIMESTAMPTZ} keeps
+     * microseconds, so without this the timestamp a write returns differs in its
+     * final digits from the one a later read produces.
+     */
+    private static Instant now() {
+        return Instant.now().truncatedTo(ChronoUnit.MICROS);
     }
 
     public UUID getId() {

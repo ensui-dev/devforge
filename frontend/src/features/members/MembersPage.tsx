@@ -97,7 +97,7 @@ export function MembersPage() {
       notify(leaving ? `You left ${workspace.name}` : `Removed ${pendingRemoval.displayName}`)
       setPendingRemoval(null)
       if (leaving) {
-        window.location.assign('/')
+        window.location.assign('/app')
       }
     } catch (caught) {
       notifyError(describeError(caught, 'Could not remove the member.'))

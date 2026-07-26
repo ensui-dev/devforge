@@ -20,7 +20,7 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false)
 
   // Where the user was headed before the redirect, if anywhere.
-  const destination = (location.state as { from?: string } | null)?.from ?? '/'
+  const destination = (location.state as { from?: string } | null)?.from ?? '/app'
 
   if (!isInitialising && isAuthenticated) {
     return <Navigate to={destination} replace />

@@ -6,10 +6,10 @@ public record AuthenticationResponse(
         String accessToken,
         String tokenType,
         Instant expiresAt,
-        UserResponse user
+        CurrentUserResponse user
 ) {
 
-    public static AuthenticationResponse of(IssuedToken token, UserResponse user) {
+    public static AuthenticationResponse of(IssuedToken token, CurrentUserResponse user) {
         return new AuthenticationResponse(token.token(), "Bearer", token.expiresAt(), user);
     }
 }

@@ -13,6 +13,7 @@ public record DocumentResponse(
         String slug,
         String content,
         DocumentType documentType,
+        boolean internal,
         Instant createdAt,
         Instant updatedAt
 ) {
@@ -25,6 +26,7 @@ public record DocumentResponse(
                 document.getSlug(),
                 document.getContent(),
                 document.getDocumentType(),
+                document.isInternal(),
                 document.getCreatedAt(),
                 document.getUpdatedAt()
         );

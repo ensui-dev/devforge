@@ -50,6 +50,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
+                        // First-run setup. The endpoint itself refuses once the
+                        // instance is configured, so leaving it open is safe.
+                        .requestMatchers(HttpMethod.POST, "/api/setup").permitAll()
+                        // The product's own documentation, read-only and limited to
+                        // the single configured handbook workspace.
+                        .requestMatchers(HttpMethod.GET, "/api/public/**").permitAll()
                         .requestMatchers(HttpMethod.GET, PUBLIC_GET_PATHS).permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.decoder(jwtDecoder)))

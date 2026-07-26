@@ -1,17 +1,16 @@
 package com.devforge.identity.application;
 
 import com.devforge.identity.contract.UserRef;
-import com.devforge.identity.domain.User;
 
 import java.util.UUID;
 
-public record UserResponse(UUID id, String email, String displayName) {
-
-    public static UserResponse from(User user) {
-        return new UserResponse(user.getId(), user.getEmail(), user.getDisplayName());
-    }
+/**
+ * What one user may see about another, which is only enough to pick them out of a
+ * list. The signed-in user's own account is {@link CurrentUserResponse}.
+ */
+public record UserResponse(UUID id, String email, String displayName, String handle) {
 
     public static UserResponse from(UserRef user) {
-        return new UserResponse(user.id(), user.email(), user.displayName());
+        return new UserResponse(user.id(), user.email(), user.displayName(), user.handle());
     }
 }

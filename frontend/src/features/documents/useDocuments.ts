@@ -3,6 +3,22 @@ import { documentApi } from '../../shared/api/endpoints'
 import { queryKeys } from '../../shared/api/queryKeys'
 import type { DocumentPayload, DocumentType, ReferenceType } from '../../shared/types'
 
+/**
+ * How many documents the list screen requests. Stated explicitly rather than
+ * relying on the server default, so the value that goes into the cache key is the
+ * same one that goes into the request.
+ */
+export const DOCUMENTS_PAGE_SIZE = 25
+
+/**
+ * How many documents a picker offers in one go. Large enough that the dialogs can
+ * filter client-side without paging.
+ */
+export const DOCUMENT_PICKER_SIZE = 100
+
+/** How many recent documents the workspace overview previews. */
+export const OVERVIEW_DOCUMENT_COUNT = 5
+
 export function useDocumentList(
   workspaceId: string,
   options: { documentType: DocumentType | 'ALL'; page: number; search: string },
@@ -10,17 +26,19 @@ export function useDocumentList(
   const { documentType, page, search } = options
   const trimmed = search.trim()
   const searching = trimmed.length > 0
+  const size = DOCUMENTS_PAGE_SIZE
 
   return useQuery({
     queryKey: searching
-      ? queryKeys.documents.search(workspaceId, trimmed, page)
-      : queryKeys.documents.list(workspaceId, documentType, page),
+      ? queryKeys.documents.search(workspaceId, trimmed, page, size)
+      : queryKeys.documents.list(workspaceId, documentType, page, size),
     queryFn: () =>
       searching
-        ? documentApi.search(workspaceId, trimmed, { page })
+        ? documentApi.search(workspaceId, trimmed, { page, size })
         : documentApi.list(workspaceId, {
             documentType: documentType === 'ALL' ? undefined : documentType,
             page,
+            size,
           }),
     // Keeps the previous page visible while the next loads, so paging and typing
     // do not blank the list.

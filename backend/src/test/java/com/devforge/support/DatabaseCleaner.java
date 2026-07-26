@@ -30,17 +30,39 @@ public class DatabaseCleaner {
         @SuppressWarnings("unchecked")
         List<String> tables = entityManager.createNativeQuery("""
                         SELECT tablename FROM pg_tables
-                        WHERE schemaname = 'public' AND tablename <> 'flyway_schema_history'
+                        WHERE schemaname = 'public'
+                          AND tablename NOT IN ('flyway_schema_history', 'instance_settings')
                         """)
                 .getResultList();
 
-        if (tables.isEmpty()) {
-            return;
+        if (!tables.isEmpty()) {
+            // One statement so foreign keys never block an intermediate state.
+            entityManager
+                    .createNativeQuery("TRUNCATE TABLE " + String.join(", ", tables) + " CASCADE")
+                    .executeUpdate();
         }
 
-        // One statement so foreign keys never block an intermediate state.
-        entityManager
-                .createNativeQuery("TRUNCATE TABLE " + String.join(", ", tables) + " CASCADE")
+        // The instance row survives truncation and is reset to a configured, open
+        // deployment. Registration is gated on instance policy, so without this
+        // every test that creates a user would be refused by an instance that has
+        // never been set up.
+        entityManager.createNativeQuery("""
+                        UPDATE instance_settings
+                        SET setup_completed_at = NOW(),
+                            registration_mode = 'OPEN',
+                            allowed_email_domains = NULL,
+                            public_docs_enabled = TRUE,
+                            name = 'DevForge',
+                            handbook_path = 'handbook/devforge-handbook'
+                        """)
+                .executeUpdate();
+    }
+
+    /** Returns the instance to its unconfigured state, for tests that exercise setup. */
+    @Transactional
+    public void resetSetup() {
+        entityManager.createNativeQuery(
+                        "UPDATE instance_settings SET setup_completed_at = NULL")
                 .executeUpdate();
     }
 }

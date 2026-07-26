@@ -1,20 +1,32 @@
 import { apiRequest, queryString } from './client'
 import type {
+  AdminInstance,
   AuthenticationResult,
   Board,
   BoardSummary,
   ColumnPayload,
+  CreateAccountPayload,
   CreateTaskPayload,
   DocumentDetail,
   DocumentPayload,
   DocumentReference,
   DocumentSummary,
   DocumentType,
+  Handbook,
+  Instance,
+  InstanceSettingsPayload,
+  InstanceUser,
   LoginPayload,
   MoveTaskPayload,
+  OwnerDocs,
   Page,
+  Publication,
+  PublicDocument,
+  PublishedWorkspace,
   ReferenceType,
   RegisterPayload,
+  SetupPayload,
+  SetupResult,
   Task,
   UpdateTaskPayload,
   User,
@@ -192,4 +204,53 @@ export const taskApi = {
       `/api/workspaces/${workspaceId}/boards/${boardId}/tasks/${taskId}/documents/${documentId}`,
       { method: 'DELETE' },
     ),
+}
+
+/**
+ * The product's own documentation. These endpoints need no session, so the docs
+ * are readable before anyone signs up.
+ */
+export const handbookApi = {
+  directory: () => apiRequest<PublishedWorkspace[]>('/api/public/docs'),
+  byOwner: (handle: string) => apiRequest<OwnerDocs>(`/api/public/docs/${handle}`),
+  contents: (handle: string, workspaceSlug: string) =>
+    apiRequest<Handbook>(`/api/public/docs/${handle}/${workspaceSlug}`),
+  page: (handle: string, workspaceSlug: string, documentSlug: string) =>
+    apiRequest<PublicDocument>(`/api/public/docs/${handle}/${workspaceSlug}/${documentSlug}`),
+}
+
+export const publicationApi = {
+  get: (workspaceId: string) =>
+    apiRequest<Publication>(`/api/workspaces/${workspaceId}/publication`),
+  set: (workspaceId: string, published: boolean) =>
+    apiRequest<Publication>(`/api/workspaces/${workspaceId}/publication`, {
+      method: 'PUT',
+      ...json({ published }),
+    }),
+}
+
+/**
+ * This deployment: how it is branded, whether it has been set up, and the
+ * settings its operator controls.
+ *
+ * {@link describe} needs no session — the client cannot render its own header
+ * before anyone signs in, and the setup screen has to be reachable on an instance
+ * that has no accounts at all.
+ */
+export const instanceApi = {
+  describe: () => apiRequest<Instance>('/api/public/instance'),
+  setUp: (payload: SetupPayload) =>
+    apiRequest<SetupResult>('/api/setup', { method: 'POST', ...json(payload) }),
+  settings: () => apiRequest<AdminInstance>('/api/instance'),
+  update: (payload: InstanceSettingsPayload) =>
+    apiRequest<AdminInstance>('/api/instance', { method: 'PUT', ...json(payload) }),
+  /** How people are added to an instance that does not accept registrations. */
+  createAccount: (payload: CreateAccountPayload) =>
+    apiRequest<InstanceUser>('/api/instance/users', { method: 'POST', ...json(payload) }),
+  administrators: () => apiRequest<InstanceUser[]>('/api/instance/admins'),
+  setInstanceAdmin: (userId: string, instanceAdmin: boolean) =>
+    apiRequest<InstanceUser>(`/api/instance/users/${userId}/admin`, {
+      method: 'PUT',
+      ...json({ instanceAdmin }),
+    }),
 }

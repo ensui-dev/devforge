@@ -1,0 +1,148 @@
+@import '../../styles/utilities.css';
+
+.site {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.site__main {
+  flex: 1;
+}
+
+.site-head {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--rule);
+}
+
+.site-head__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  max-width: 74rem;
+  margin: 0 auto;
+  padding: var(--space-2) var(--space-5);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: inherit;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+/* The instance's own mark lives here; see InstanceMark.css. */
+.brand {
+  font-size: var(--text-sm);
+}
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.site-nav__link {
+  padding: 0.3125rem 0.625rem;
+  border-radius: var(--radius-sm);
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  transition:
+    background-color var(--transition),
+    color var(--transition);
+}
+
+.site-nav__link:hover {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}
+
+.site-nav__link.is-active {
+  background: var(--trace-wash);
+  color: var(--trace);
+  font-weight: 500;
+}
+
+.site-nav__cta,
+.site-nav__cta.is-active {
+  background: var(--trace);
+  color: #fff;
+  font-weight: 500;
+}
+
+.site-nav__cta:hover {
+  background: var(--trace-strong);
+  color: #fff;
+}
+
+.site-foot {
+  border-top: 1px solid var(--rule);
+  margin-top: var(--space-7);
+}
+
+.site-foot__inner {
+  display: flex;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+  justify-content: space-between;
+  max-width: 74rem;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5) var(--space-7);
+  font-size: var(--text-sm);
+  color: var(--ink-faint);
+}
+
+.site-foot__note {
+  max-width: 34rem;
+}
+
+.site-foot__links {
+  display: flex;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+}
+
+.site-foot__links a {
+  color: var(--ink-muted);
+  text-decoration: none;
+}
+
+.site-foot__links a:hover {
+  color: var(--trace);
+}
+
+/* Dark themes need dark text on the teal fill, set explicitly rather than inherited. */
+:root[data-theme='dark'] .brand__mark,
+:root[data-theme='dark'] .site-nav__cta,
+:root[data-theme='dark'] .site-nav__cta:hover {
+  color: #06181a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .brand__mark,
+  :root:not([data-theme='light']) .site-nav__cta,
+  :root:not([data-theme='light']) .site-nav__cta:hover {
+    color: #06181a;
+  }
+}
+
+@media (max-width: 46rem) {
+  .site-head__inner {
+    padding: var(--space-2) var(--space-4);
+    gap: var(--space-3);
+  }
+
+  .site-nav__link {
+    padding: 0.25rem 0.4375rem;
+    font-size: var(--text-xs);
+  }
+}

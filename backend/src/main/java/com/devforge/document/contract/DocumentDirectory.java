@@ -24,4 +24,15 @@ public interface DocumentDirectory {
      *         document exists in that workspace
      */
     DocumentRef require(UUID workspaceId, UUID documentId);
+
+    /**
+     * How a workspace's pages divide between public and held back.
+     *
+     * <p>Published here because the workspace module needs it to describe what
+     * publishing would expose, and counting documents is not its business.
+     */
+    VisibilityCounts countByVisibility(UUID workspaceId);
+
+    record VisibilityCounts(int publicPages, int internalPages) {
+    }
 }

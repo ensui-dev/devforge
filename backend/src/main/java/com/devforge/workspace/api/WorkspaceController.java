@@ -2,6 +2,9 @@ package com.devforge.workspace.api;
 
 import com.devforge.shared.security.CurrentUser;
 import com.devforge.workspace.application.CreateWorkspaceRequest;
+import com.devforge.workspace.application.PublicationResponse;
+import com.devforge.workspace.application.PublicationService;
+import com.devforge.workspace.application.UpdatePublicationRequest;
 import com.devforge.workspace.application.UpdateWorkspaceRequest;
 import com.devforge.workspace.application.WorkspaceResponse;
 import com.devforge.workspace.application.WorkspaceService;
@@ -28,9 +31,14 @@ import java.util.UUID;
 public class WorkspaceController {
 
     private final WorkspaceService workspaceService;
+    private final PublicationService publicationService;
 
-    public WorkspaceController(WorkspaceService workspaceService) {
+    public WorkspaceController(
+            WorkspaceService workspaceService,
+            PublicationService publicationService
+    ) {
         this.workspaceService = workspaceService;
+        this.publicationService = publicationService;
     }
 
     @GetMapping
@@ -70,5 +78,21 @@ public class WorkspaceController {
     @Operation(summary = "Delete a workspace and everything in it (OWNER)")
     public void delete(@PathVariable UUID workspaceId, @CurrentUser UUID userId) {
         workspaceService.delete(workspaceId, userId);
+    }
+
+    @GetMapping("/{workspaceId}/publication")
+    @Operation(summary = "Describe whether this workspace's documentation is public")
+    public PublicationResponse publication(@PathVariable UUID workspaceId, @CurrentUser UUID userId) {
+        return publicationService.describe(workspaceId, userId);
+    }
+
+    @PutMapping("/{workspaceId}/publication")
+    @Operation(summary = "Publish or unpublish this workspace's documentation (ADMIN)")
+    public PublicationResponse updatePublication(
+            @PathVariable UUID workspaceId,
+            @Valid @RequestBody UpdatePublicationRequest request,
+            @CurrentUser UUID userId
+    ) {
+        return publicationService.update(workspaceId, request, userId);
     }
 }

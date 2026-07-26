@@ -1,0 +1,34 @@
+.published-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: var(--space-3);
+  background: var(--success-wash);
+  border: 1px solid color-mix(in srgb, var(--success) 35%, transparent);
+  border-left: 3px solid var(--success);
+  border-radius: var(--radius);
+}
+
+.published-banner__title {
+  font-family: var(--font-mono);
+  font-size: var(--text-3xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--success);
+}
+
+.published-banner__detail {
+  font-size: var(--text-2xs);
+  color: var(--ink-muted);
+}
+
+.published-banner__link {
+  margin-top: var(--space-1);
+  font-size: var(--text-2xs);
+  text-decoration: none;
+}
+
+.published-banner__link:hover {
+  text-decoration: underline;
+}

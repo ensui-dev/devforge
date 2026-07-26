@@ -54,6 +54,14 @@ public class DocumentDirectoryService implements DocumentDirectory {
                 .orElseThrow(() -> new ResourceNotFoundException("Document", documentId));
     }
 
+    @Override
+    public VisibilityCounts countByVisibility(UUID workspaceId) {
+        return new VisibilityCounts(
+                documentRepository.countByWorkspaceIdAndInternalFalse(workspaceId),
+                documentRepository.countByWorkspaceIdAndInternalTrue(workspaceId)
+        );
+    }
+
     static DocumentRef toRef(Document document) {
         return new DocumentRef(
                 document.getId(),

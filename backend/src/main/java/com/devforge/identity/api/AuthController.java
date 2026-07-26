@@ -4,7 +4,7 @@ import com.devforge.identity.application.AuthService;
 import com.devforge.identity.application.AuthenticationResponse;
 import com.devforge.identity.application.LoginRequest;
 import com.devforge.identity.application.RegisterRequest;
-import com.devforge.identity.application.UserResponse;
+import com.devforge.identity.application.CurrentUserResponse;
 import com.devforge.shared.security.CurrentUser;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -45,7 +45,7 @@ public class AuthController {
 
     @GetMapping("/me")
     @Operation(summary = "Describe the authenticated user")
-    public UserResponse me(@CurrentUser UUID userId) {
+    public CurrentUserResponse me(@CurrentUser UUID userId) {
         return authService.currentUser(userId);
     }
 }

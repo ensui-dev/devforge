@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../shared/auth/useAuth'
+import { InstanceMark } from '../../shared/instance/InstanceMark'
+import { useInstance } from '../../shared/instance/useInstance'
 import { Badge } from '../../shared/components/Badge'
 import { Button } from '../../shared/components/Button'
 import { EmptyState } from '../../shared/components/EmptyState'
@@ -13,20 +15,31 @@ import './WorkspaceListPage.css'
 export function WorkspaceListPage() {
   const { data: workspaces, isPending, error, refetch } = useWorkspaces()
   const { user, logOut } = useAuth()
+  const { instance } = useInstance()
   const navigate = useNavigate()
   const [dialogOpen, setDialogOpen] = useState(false)
 
   return (
     <div className="workspaces">
       <header className="workspaces__header">
+        <Link className="workspaces__brand" to="/">
+          <InstanceMark
+            name={instance.name}
+            logoMark={instance.logoMark}
+            logoImage={instance.logoImage}
+          />
+        </Link>
         <div className="row">
-          <span className="workspaces__mark" aria-hidden="true">
-            ⌁
+          <span className="workspaces__user">
+            {user?.displayName}
+            {user?.handle ? <span className="workspaces__handle"> @{user.handle}</span> : null}
           </span>
-          <span className="workspaces__wordmark">DevForge</span>
-        </div>
-        <div className="row">
-          <span className="workspaces__user">{user?.displayName}</span>
+          {/* Only an operator sees this; the server refuses everyone else. */}
+          {user?.instanceAdmin ? (
+            <Link className="workspaces__instance-link" to="/instance">
+              Instance settings
+            </Link>
+          ) : null}
           <Button variant="ghost" size="sm" onClick={logOut}>
             Sign out
           </Button>

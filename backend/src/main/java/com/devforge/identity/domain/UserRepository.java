@@ -13,7 +13,15 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     boolean existsByEmail(String email);
 
+    Optional<User> findByHandle(String handle);
+
+    boolean existsByHandle(String handle);
+
     List<User> findAllByIdIn(Collection<UUID> ids);
+
+    List<User> findAllByInstanceAdminTrueOrderByDisplayNameAsc();
+
+    long countByInstanceAdminTrue();
 
     List<User> findTop20ByDisplayNameContainingIgnoreCaseOrEmailContainingIgnoreCaseOrderByDisplayNameAsc(
             String displayNameFragment,

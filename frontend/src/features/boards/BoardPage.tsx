@@ -12,7 +12,7 @@ import { useCurrentWorkspace } from '../workspaces/WorkspaceContext'
 import { ColumnHeader } from './ColumnHeader'
 import { TaskCard } from './TaskCard'
 import { TaskDialog } from './TaskDialog'
-import { useAddColumn, useBoard, useDeleteBoard, useMoveTask } from './useBoards'
+import { useAddColumn, useBoard, useDeleteBoard, useMoveTask, useRenameBoard } from './useBoards'
 import './BoardPage.css'
 
 interface DragState {
@@ -36,6 +36,7 @@ export function BoardPage() {
   const moveTask = useMoveTask(workspace.id, boardId)
   const addColumn = useAddColumn(workspace.id, boardId)
   const deleteBoard = useDeleteBoard(workspace.id)
+  const renameBoard = useRenameBoard(workspace.id, boardId)
 
   const [drag, setDrag] = useState<DragState | null>(null)
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
@@ -43,6 +44,8 @@ export function BoardPage() {
   const [columnDialogOpen, setColumnDialogOpen] = useState(false)
   const [columnName, setColumnName] = useState('')
   const [confirmDeleteBoard, setConfirmDeleteBoard] = useState(false)
+  const [renameOpen, setRenameOpen] = useState(false)
+  const [boardName, setBoardName] = useState('')
 
   const canWrite = roleAtLeast(workspace.callerRole, 'MEMBER')
   const canAdmin = roleAtLeast(workspace.callerRole, 'ADMIN')
@@ -112,6 +115,16 @@ export function BoardPage() {
     }
   }
 
+  const handleRenameBoard = async () => {
+    try {
+      await renameBoard.mutateAsync(boardName.trim())
+      notify('Board renamed')
+      setRenameOpen(false)
+    } catch (caught) {
+      notifyError(describeError(caught, 'Could not rename the board.'))
+    }
+  }
+
   const handleDeleteBoard = async () => {
     try {
       await deleteBoard.mutateAsync(boardId)
@@ -171,6 +184,15 @@ export function BoardPage() {
           ) : null}
           {canWrite ? (
             <>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setBoardName(board.name)
+                  setRenameOpen(true)
+                }}
+              >
+                Rename
+              </Button>
               <Button variant="secondary" onClick={() => setColumnDialogOpen(true)}>
                 Add column
               </Button>
@@ -264,6 +286,34 @@ export function BoardPage() {
           onClose={() => setTaskDialog(null)}
         />
       ) : null}
+
+      <Modal
+        title="Rename board"
+        open={renameOpen}
+        onClose={() => setRenameOpen(false)}
+        width="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setRenameOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRenameBoard}
+              loading={renameBoard.isPending}
+              disabled={!boardName.trim() || boardName.trim() === board.name}
+            >
+              Save name
+            </Button>
+          </>
+        }
+      >
+        <TextField
+          label="Name"
+          value={boardName}
+          autoFocus
+          onChange={(event) => setBoardName(event.target.value)}
+        />
+      </Modal>
 
       <Modal
         title="Add a column"

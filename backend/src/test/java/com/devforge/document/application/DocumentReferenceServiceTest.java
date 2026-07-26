@@ -54,8 +54,8 @@ class DocumentReferenceServiceTest {
     void setUp() {
         workspaceId = UUID.randomUUID();
         userId = UUID.randomUUID();
-        source = new Document(workspaceId, "Auth Flow", "auth-flow", "", DocumentType.ARCHITECTURE);
-        target = new Document(workspaceId, "OAuth Setup", "oauth-setup", "", DocumentType.PROCEDURE);
+        source = new Document(workspaceId, "Auth Flow", "auth-flow", "", DocumentType.ARCHITECTURE, false);
+        target = new Document(workspaceId, "OAuth Setup", "oauth-setup", "", DocumentType.PROCEDURE, false);
     }
 
     @Test

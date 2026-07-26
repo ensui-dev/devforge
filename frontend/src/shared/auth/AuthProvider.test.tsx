@@ -30,7 +30,12 @@ function storedSession(expiresAt: string) {
   return JSON.stringify({
     accessToken: 'token-abc',
     expiresAt,
-    user: { id: 'user-1', email: 'dev@example.com', displayName: 'Stored Dev' },
+    user: {
+      id: 'user-1',
+      email: 'dev@example.com',
+      displayName: 'Stored Dev',
+      handle: 'dev',
+    },
   })
 }
 
@@ -40,7 +45,12 @@ function loginResponse() {
       accessToken: 'token-xyz',
       tokenType: 'Bearer',
       expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
-      user: { id: 'user-1', email: 'dev@example.com', displayName: 'Fresh Dev' },
+      user: {
+        id: 'user-1',
+        email: 'dev@example.com',
+        displayName: 'Fresh Dev',
+        handle: 'dev',
+      },
     }),
     { status: 200, headers: { 'Content-Type': 'application/json' } },
   )

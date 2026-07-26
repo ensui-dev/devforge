@@ -30,7 +30,12 @@ describe('WorkspaceListPage', () => {
       JSON.stringify({
         accessToken: 'token',
         expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
-        user: { id: 'user-1', email: 'dev@example.com', displayName: 'Dev Example' },
+        user: {
+          id: 'user-1',
+          email: 'dev@example.com',
+          displayName: 'Dev Example',
+          handle: 'dev-example',
+        },
       }),
     )
   })

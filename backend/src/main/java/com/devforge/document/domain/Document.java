@@ -46,15 +46,33 @@ public class Document extends BaseEntity {
     @Column(name = "document_type", nullable = false, length = 50)
     private DocumentType documentType;
 
+    /**
+     * Holds this page back from the public site even while its workspace is
+     * published.
+     *
+     * <p>Defaults to false: publishing a workspace exposes its pages, and the
+     * client makes that visible rather than leaving it implicit.
+     */
+    @Column(nullable = false)
+    private boolean internal = false;
+
     protected Document() {
     }
 
-    public Document(UUID workspaceId, String title, String slug, String content, DocumentType documentType) {
+    public Document(
+            UUID workspaceId,
+            String title,
+            String slug,
+            String content,
+            DocumentType documentType,
+            boolean internal
+    ) {
         this.workspaceId = workspaceId;
         this.title = title;
         this.slug = slug;
         this.content = content == null ? "" : content;
         this.documentType = documentType;
+        this.internal = internal;
     }
 
     public UUID getWorkspaceId() {
@@ -77,12 +95,23 @@ public class Document extends BaseEntity {
         return documentType;
     }
 
+    public boolean isInternal() {
+        return internal;
+    }
+
     /** Applies a whole edit at once, keeping the entity's state consistent. */
-    public void revise(String title, String slug, String content, DocumentType documentType) {
+    public void revise(
+            String title,
+            String slug,
+            String content,
+            DocumentType documentType,
+            boolean internal
+    ) {
         this.title = title;
         this.slug = slug;
         this.content = content == null ? "" : content;
         this.documentType = documentType;
+        this.internal = internal;
     }
 
     public boolean belongsTo(UUID workspaceId) {

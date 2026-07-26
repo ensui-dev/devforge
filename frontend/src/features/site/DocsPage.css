@@ -1,0 +1,246 @@
+@import '../../styles/utilities.css';
+
+.docs-shell {
+  display: grid;
+  grid-template-columns: 16rem minmax(0, 1fr);
+  max-width: 74rem;
+  margin: 0 auto;
+  gap: var(--space-6);
+  padding: 0 var(--space-5);
+}
+
+.docs-shell--plain {
+  display: block;
+  max-width: 44rem;
+  padding: var(--space-7) var(--space-5);
+}
+
+.docs-rail {
+  position: sticky;
+  /* Clears the sticky site header. */
+  top: 3.25rem;
+  align-self: start;
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+  padding: var(--space-5) 0 var(--space-6);
+}
+
+.docs-rail__title {
+  margin-bottom: var(--space-4);
+  color: var(--ink);
+}
+
+.docs-rail__group {
+  margin-bottom: var(--space-4);
+}
+
+.docs-rail__heading {
+  margin-bottom: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-3xs);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.docs-rail__link {
+  display: block;
+  padding: 0.25rem var(--space-2);
+  border-left: 2px solid transparent;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  transition:
+    background-color var(--transition),
+    border-color var(--transition),
+    color var(--transition);
+}
+
+.docs-rail__link:hover {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}
+
+.docs-rail__link.is-active {
+  border-left-color: var(--trace);
+  background: var(--trace-wash);
+  color: var(--trace);
+  font-weight: 500;
+}
+
+.docs-body {
+  min-width: 0;
+  padding: var(--space-5) 0 var(--space-7);
+}
+
+.docs-head {
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: var(--space-5);
+}
+
+.docs-head__slug {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+
+.docs-head__meta {
+  margin-top: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--ink-faint);
+}
+
+/* The reference graph, drawn as plotted traces — the same treatment the app uses. */
+.connections {
+  margin-top: var(--space-6);
+  padding: var(--space-4);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  max-width: 46rem;
+}
+
+.connections__title {
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--text-sm);
+}
+
+.connections__groups {
+  display: flex;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+}
+
+.connections__group {
+  flex: 1;
+  min-width: 14rem;
+}
+
+.edges {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.edge {
+  position: relative;
+  padding-left: var(--space-4);
+}
+
+.edge::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.4rem;
+  bottom: -0.5rem;
+  border-left: 1px solid var(--rule-strong);
+}
+
+.edge:last-child::before {
+  bottom: auto;
+  height: 0;
+}
+
+.edge::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.4rem;
+  width: var(--space-3);
+  border-top: 1px solid var(--rule-strong);
+}
+
+.edge__type {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-3xs);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--trace);
+}
+
+.edge__target {
+  font-size: var(--text-sm);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+a.edge__target:hover {
+  color: var(--trace);
+  text-decoration: underline;
+}
+
+@media (max-width: 60rem) {
+  .docs-shell {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .docs-rail {
+    position: static;
+    max-height: none;
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--rule);
+  }
+}
+
+/* Directory of published workspaces, shown when no single one is requested. */
+.docs-directory__title {
+  font-size: var(--text-2xl);
+  margin-bottom: var(--space-4);
+}
+
+.docs-directory {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.docs-directory__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--rule-strong);
+  border-radius: var(--radius);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color var(--transition),
+    box-shadow var(--transition);
+}
+
+.docs-directory__item:hover {
+  border-color: var(--trace);
+  border-left-color: var(--trace);
+}
+
+.docs-directory__name {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.docs-directory__desc {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.docs-directory__meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--ink-faint);
+}

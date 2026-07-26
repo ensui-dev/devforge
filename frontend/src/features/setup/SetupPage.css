@@ -1,0 +1,266 @@
+/*
+ * First run. A single sheet on the drafting ground, with the four steps running
+ * down its left edge like a title block — the one place in the product where a
+ * sequence is genuinely a sequence, so the numbering is load-bearing.
+ */
+
+.setup {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-5) var(--space-4);
+}
+
+.setup__panel {
+  width: min(52rem, 100%);
+  display: grid;
+  grid-template-columns: 12rem minmax(0, 1fr);
+  grid-template-areas:
+    'head head'
+    'steps error'
+    'steps body'
+    'steps actions';
+  gap: var(--space-4) var(--space-6);
+  padding: var(--space-6);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+.setup__head {
+  grid-area: head;
+  display: grid;
+  gap: var(--space-2);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--rule);
+}
+
+.setup__title {
+  font-size: var(--text-2xl);
+  text-wrap: balance;
+}
+
+.setup__lead {
+  max-width: 62ch;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+/* The step rail */
+.setup__steps {
+  grid-area: steps;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  border-right: 1px solid var(--rule);
+  padding-right: var(--space-4);
+}
+
+.setup-step {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr);
+  gap: 0 var(--space-2);
+  align-items: baseline;
+  color: var(--ink-faint);
+}
+
+.setup-step__n {
+  grid-row: 1 / span 2;
+  align-self: start;
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.setup-step__label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.setup-step__hint {
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+
+.setup-step.is-current {
+  color: var(--trace);
+}
+
+.setup-step.is-current .setup-step__n {
+  background: var(--trace);
+  border-color: var(--trace);
+  color: var(--paper-raised);
+}
+
+.setup-step.is-done {
+  color: var(--ink-muted);
+}
+
+.setup-step.is-done .setup-step__n {
+  border-color: var(--rule-strong);
+}
+
+/* The form body */
+.setup__body {
+  grid-area: body;
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+}
+
+.setup__error {
+  grid-area: error;
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  background: var(--danger-wash);
+  color: var(--danger);
+  font-size: var(--text-sm);
+}
+
+.setup__aside {
+  margin: 0;
+  padding: var(--space-3);
+  border-left: 2px solid var(--rule-strong);
+  background: var(--paper-sunken);
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.setup__preview {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  padding: var(--space-4);
+  border: 1px dashed var(--rule-strong);
+  border-radius: var(--radius);
+  font-size: var(--text-lg);
+}
+
+.setup__preview-note {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.setup__file {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.setup__accents {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.setup__swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.swatch {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--swatch, var(--paper-sunken));
+  cursor: pointer;
+  transition: box-shadow var(--transition);
+}
+
+.swatch.is-selected {
+  box-shadow: 0 0 0 2px var(--paper-raised), 0 0 0 3px var(--ink);
+}
+
+.swatch--custom {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--paper-sunken);
+}
+
+.swatch--custom input {
+  width: 150%;
+  height: 150%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.setup__toggle {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+  padding: var(--space-3);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.setup__toggle > span {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.setup__toggle-hint {
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+}
+
+.setup__actions {
+  grid-area: actions;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--rule);
+}
+
+/* The rail becomes a horizontal strip before the columns get too narrow to read. */
+@media (max-width: 42rem) {
+  .setup__panel {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'head'
+      'steps'
+      'error'
+      'body'
+      'actions';
+    padding: var(--space-4);
+  }
+
+  .setup__steps {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+    padding-right: 0;
+    padding-bottom: var(--space-3);
+    gap: var(--space-2);
+  }
+
+  .setup-step__hint {
+    display: none;
+  }
+}

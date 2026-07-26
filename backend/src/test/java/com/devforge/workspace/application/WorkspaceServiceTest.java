@@ -48,7 +48,7 @@ class WorkspaceServiceTest {
     @BeforeEach
     void setUp() {
         userId = UUID.randomUUID();
-        workspace = new Workspace("Platform", "Core services", "platform");
+        workspace = new Workspace("Platform", "Core services", "platform", userId);
     }
 
     @Test
@@ -75,8 +75,8 @@ class WorkspaceServiceTest {
 
     @Test
     void sortsWorkspacesByNameCaseInsensitively() {
-        Workspace zebra = new Workspace("zebra", null, "zebra");
-        Workspace apple = new Workspace("Apple", null, "apple");
+        Workspace zebra = new Workspace("zebra", null, "zebra", userId);
+        Workspace apple = new Workspace("Apple", null, "apple", userId);
         when(memberRepository.findByUserId(userId)).thenReturn(List.of(
                 new WorkspaceMember(zebra.getId(), userId, WorkspaceRole.MEMBER),
                 new WorkspaceMember(apple.getId(), userId, WorkspaceRole.MEMBER)));
@@ -89,7 +89,7 @@ class WorkspaceServiceTest {
 
     @Test
     void enrolsTheCreatorAsOwner() {
-        when(workspaceRepository.existsBySlug("platform")).thenReturn(false);
+        when(workspaceRepository.existsByOwnerUserIdAndSlug(userId, "platform")).thenReturn(false);
         when(workspaceRepository.save(any(Workspace.class))).thenAnswer(call -> call.getArgument(0));
 
         WorkspaceResponse response = workspaceService.create(
@@ -105,7 +105,7 @@ class WorkspaceServiceTest {
 
     @Test
     void rejectsADuplicateSlugOnCreate() {
-        when(workspaceRepository.existsBySlug("platform")).thenReturn(true);
+        when(workspaceRepository.existsByOwnerUserIdAndSlug(userId, "platform")).thenReturn(true);
 
         assertThatThrownBy(() -> workspaceService.create(
                 new CreateWorkspaceRequest("Platform", null, "platform"), userId))
@@ -140,14 +140,14 @@ class WorkspaceServiceTest {
                 userId);
 
         assertThat(response.slug()).isEqualTo("platform");
-        verify(workspaceRepository, never()).existsBySlug(any());
+        verify(workspaceRepository, never()).existsByOwnerUserIdAndSlug(any(), any());
     }
 
     @Test
     void rejectsTakingAnotherWorkspacesSlug() {
         givenAccess(WorkspaceRole.ADMIN);
         when(workspaceRepository.findById(workspace.getId())).thenReturn(Optional.of(workspace));
-        when(workspaceRepository.existsBySlug("taken")).thenReturn(true);
+        when(workspaceRepository.existsByOwnerUserIdAndSlug(userId, "taken")).thenReturn(true);
 
         assertThatThrownBy(() -> workspaceService.update(
                 workspace.getId(),

@@ -56,7 +56,7 @@ class DocumentServiceTest {
     void setUp() {
         workspaceId = UUID.randomUUID();
         userId = UUID.randomUUID();
-        document = new Document(workspaceId, "Auth Flow", "auth-flow", "Details", DocumentType.ARCHITECTURE);
+        document = new Document(workspaceId, "Auth Flow", "auth-flow", "Details", DocumentType.ARCHITECTURE, false);
     }
 
     @Test
@@ -67,7 +67,7 @@ class DocumentServiceTest {
 
         DocumentResponse response = documentService.create(
                 workspaceId,
-                new CreateDocumentRequest("Auth Flow", "auth-flow", "Details", DocumentType.ARCHITECTURE),
+                new CreateDocumentRequest("Auth Flow", "auth-flow", "Details", DocumentType.ARCHITECTURE, false),
                 userId);
 
         assertThat(response.title()).isEqualTo("Auth Flow");
@@ -83,7 +83,7 @@ class DocumentServiceTest {
 
         DocumentResponse response = documentService.create(
                 workspaceId,
-                new CreateDocumentRequest("Empty", "empty", null, DocumentType.GENERAL),
+                new CreateDocumentRequest("Empty", "empty", null, DocumentType.GENERAL, false),
                 userId);
 
         assertThat(response.content()).isEmpty();
@@ -96,7 +96,7 @@ class DocumentServiceTest {
 
         assertThatThrownBy(() -> documentService.create(
                 workspaceId,
-                new CreateDocumentRequest("Auth Flow", "auth-flow", "Details", DocumentType.ARCHITECTURE),
+                new CreateDocumentRequest("Auth Flow", "auth-flow", "Details", DocumentType.ARCHITECTURE, false),
                 userId))
                 .isInstanceOf(DuplicateResourceException.class);
 
@@ -151,7 +151,7 @@ class DocumentServiceTest {
         DocumentResponse response = documentService.update(
                 workspaceId,
                 document.getId(),
-                new UpdateDocumentRequest("Renamed", "auth-flow", "New body", DocumentType.DECISION),
+                new UpdateDocumentRequest("Renamed", "auth-flow", "New body", DocumentType.DECISION, false),
                 userId);
 
         assertThat(response.title()).isEqualTo("Renamed");
@@ -171,7 +171,7 @@ class DocumentServiceTest {
         assertThatThrownBy(() -> documentService.update(
                 workspaceId,
                 document.getId(),
-                new UpdateDocumentRequest("Auth Flow", "taken", "body", DocumentType.GENERAL),
+                new UpdateDocumentRequest("Auth Flow", "taken", "body", DocumentType.GENERAL, false),
                 userId))
                 .isInstanceOf(DuplicateResourceException.class);
     }

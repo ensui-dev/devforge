@@ -67,7 +67,7 @@ class MembershipServiceTest {
         when(memberRepository.findByWorkspaceIdOrderByRoleAscCreatedAtAsc(workspaceId))
                 .thenReturn(List.of(member));
         when(userDirectory.findAllByIds(List.of(targetId)))
-                .thenReturn(Map.of(targetId, new UserRef(targetId, "dev@example.com", "Dev")));
+                .thenReturn(Map.of(targetId, new UserRef(targetId, "dev@example.com", "Dev", "handle")));
 
         List<MemberResponse> members = membershipService.findMembers(workspaceId, actorId);
 
@@ -91,7 +91,7 @@ class MembershipServiceTest {
     void addsAMemberByEmail() {
         givenAccess(WorkspaceRole.ADMIN);
         when(userDirectory.findByEmail("new@example.com"))
-                .thenReturn(Optional.of(new UserRef(targetId, "new@example.com", "New Dev")));
+                .thenReturn(Optional.of(new UserRef(targetId, "new@example.com", "New Dev", "handle")));
         when(memberRepository.existsByWorkspaceIdAndUserId(workspaceId, targetId)).thenReturn(false);
         when(memberRepository.save(any(WorkspaceMember.class))).thenAnswer(call -> call.getArgument(0));
 
@@ -116,7 +116,7 @@ class MembershipServiceTest {
     void rejectsAddingSomeoneTwice() {
         givenAccess(WorkspaceRole.ADMIN);
         when(userDirectory.findByEmail("dup@example.com"))
-                .thenReturn(Optional.of(new UserRef(targetId, "dup@example.com", "Dup")));
+                .thenReturn(Optional.of(new UserRef(targetId, "dup@example.com", "Dup", "handle")));
         when(memberRepository.existsByWorkspaceIdAndUserId(workspaceId, targetId)).thenReturn(true);
 
         assertThatThrownBy(() -> membershipService.addMember(
@@ -141,7 +141,7 @@ class MembershipServiceTest {
     void ownerCanGrantOwner() {
         givenAccess(WorkspaceRole.OWNER);
         when(userDirectory.findByEmail("co@example.com"))
-                .thenReturn(Optional.of(new UserRef(targetId, "co@example.com", "Co Owner")));
+                .thenReturn(Optional.of(new UserRef(targetId, "co@example.com", "Co Owner", "handle")));
         when(memberRepository.existsByWorkspaceIdAndUserId(workspaceId, targetId)).thenReturn(false);
         when(memberRepository.save(any(WorkspaceMember.class))).thenAnswer(call -> call.getArgument(0));
 
@@ -166,7 +166,7 @@ class MembershipServiceTest {
         givenAccess(WorkspaceRole.OWNER);
         WorkspaceMember member = givenTargetMembership(WorkspaceRole.VIEWER);
         when(userDirectory.findById(targetId))
-                .thenReturn(Optional.of(new UserRef(targetId, "dev@example.com", "Dev")));
+                .thenReturn(Optional.of(new UserRef(targetId, "dev@example.com", "Dev", "handle")));
 
         MemberResponse response = membershipService.changeRole(
                 workspaceId, targetId, new UpdateMemberRoleRequest(WorkspaceRole.MEMBER), actorId);

@@ -3,7 +3,8 @@ package com.devforge.identity.application;
 import com.devforge.identity.contract.UserRef;
 import com.devforge.identity.domain.User;
 import com.devforge.identity.domain.UserRepository;
-import com.devforge.shared.exception.DuplicateResourceException;
+import com.devforge.instance.contract.InstancePolicy;
+import com.devforge.shared.exception.PermissionDeniedException;
 import com.devforge.shared.exception.ResourceNotFoundException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -19,30 +20,35 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final AccessTokenIssuer accessTokenIssuer;
+    private final AccountProvisioningService accountProvisioning;
+    private final InstancePolicy instancePolicy;
 
     public AuthService(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
-            AccessTokenIssuer accessTokenIssuer
+            AccessTokenIssuer accessTokenIssuer,
+            AccountProvisioningService accountProvisioning,
+            InstancePolicy instancePolicy
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.accessTokenIssuer = accessTokenIssuer;
+        this.accountProvisioning = accountProvisioning;
+        this.instancePolicy = instancePolicy;
     }
 
     @Transactional
     public AuthenticationResponse register(RegisterRequest request) {
         String email = User.normalizeEmail(request.email());
-        if (userRepository.existsByEmail(email)) {
-            throw new DuplicateResourceException("An account already exists for " + email);
+
+        // Whether this instance accepts the registration at all is the operator's
+        // decision, not identity's.
+        if (!instancePolicy.registrationAllowedFor(email)) {
+            throw new PermissionDeniedException(instancePolicy.registrationRefusalReason());
         }
 
-        User user = userRepository.save(new User(
-                email,
-                request.displayName().trim(),
-                passwordEncoder.encode(request.password())
-        ));
-
+        User user = accountProvisioning.create(
+                email, request.displayName(), request.password(), false);
         return authenticationFor(user);
     }
 
@@ -60,13 +66,14 @@ public class AuthService {
         return authenticationFor(user);
     }
 
-    public UserResponse currentUser(UUID userId) {
-        return UserResponse.from(userRepository.findById(userId)
+    public CurrentUserResponse currentUser(UUID userId) {
+        return CurrentUserResponse.from(userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId)));
     }
 
     private AuthenticationResponse authenticationFor(User user) {
-        UserRef ref = new UserRef(user.getId(), user.getEmail(), user.getDisplayName());
-        return AuthenticationResponse.of(accessTokenIssuer.issue(ref), UserResponse.from(ref));
+        UserRef ref = new UserRef(
+                user.getId(), user.getEmail(), user.getDisplayName(), user.getHandle());
+        return AuthenticationResponse.of(accessTokenIssuer.issue(ref), CurrentUserResponse.from(user));
     }
 }

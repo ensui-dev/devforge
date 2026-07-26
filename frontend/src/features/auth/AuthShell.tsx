@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react'
+import { InstanceMark } from '../../shared/instance/InstanceMark'
+import { useInstance } from '../../shared/instance/useInstance'
 import './AuthShell.css'
 
 interface AuthShellProps {
@@ -16,14 +18,17 @@ interface AuthShellProps {
  * sees is the thing that makes this different from a wiki plus a board.
  */
 export function AuthShell({ title, subtitle, children, footer }: AuthShellProps) {
+  const { instance } = useInstance()
+
   return (
     <div className="auth">
       <main className="auth__panel">
         <div className="auth__brand">
-          <span className="auth__mark" aria-hidden="true">
-            ⌁
-          </span>
-          <span className="auth__wordmark">DevForge</span>
+          <InstanceMark
+            name={instance.name}
+            logoMark={instance.logoMark}
+            logoImage={instance.logoImage}
+          />
         </div>
         <div className="auth__intro">
           <h1 className="auth__title">{title}</h1>

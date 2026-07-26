@@ -1,0 +1,67 @@
+@import '../../styles/utilities.css';
+
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 34rem;
+  padding: var(--space-5);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+}
+
+.settings-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+}
+
+.settings-panel__suggestion {
+  margin-top: calc(var(--space-3) * -1);
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+
+/* A button that reads as a link, for the inline slug suggestion. */
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--trace);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/*
+ * Set apart with the danger colour rather than mixed into the form above, so a
+ * destructive action is never one stray click away from an ordinary edit.
+ */
+.danger-zone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  max-width: 34rem;
+  padding: var(--space-4) var(--space-5);
+  background: var(--danger-wash);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+  border-radius: var(--radius-lg);
+}
+
+.danger-zone__title {
+  font-size: var(--text-sm);
+  color: var(--danger);
+}
+
+.danger-zone__detail {
+  margin-top: var(--space-1);
+  max-width: 26rem;
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}

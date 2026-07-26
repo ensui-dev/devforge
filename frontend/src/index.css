@@ -101,6 +101,12 @@ pre {
   color: var(--ink-faint);
 }
 
+/* Shown for the moment before this instance says what it is called. Deliberately
+   blank: a wrong name flashing on screen is worse than none. */
+.boot {
+  min-height: 100vh;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

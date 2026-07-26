@@ -45,7 +45,7 @@ class DocumentSummaryResponseTest {
     @Test
     void carriesIdentityAndType() {
         Document document = new Document(
-                WORKSPACE_ID, "Auth Flow", "auth-flow", "body", DocumentType.ARCHITECTURE);
+                WORKSPACE_ID, "Auth Flow", "auth-flow", "body", DocumentType.ARCHITECTURE, false);
 
         DocumentSummaryResponse summary = DocumentSummaryResponse.from(document);
 
@@ -58,6 +58,6 @@ class DocumentSummaryResponseTest {
 
     private static DocumentSummaryResponse summaryOf(String content) {
         return DocumentSummaryResponse.from(
-                new Document(WORKSPACE_ID, "Title", "title", content, DocumentType.GENERAL));
+                new Document(WORKSPACE_ID, "Title", "title", content, DocumentType.GENERAL, false));
     }
 }

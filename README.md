@@ -10,6 +10,12 @@ cross-link; each edge has a meaning (`DEPENDS_ON`, `IMPLEMENTS`, `SUPERSEDES`,
 `DOCUMENTS`, `RELATED`), and every edge is visible from both ends. So "what breaks
 if I change this page?" is a query, not a search.
 
+DevForge is open source under the [MIT licence](LICENSE) and built to be
+self-hosted. A fresh deployment configures itself through a first-run setup
+screen — name, mark, accent, registration policy, and the account that will
+administer it — so nothing about an instance is baked into the build. See
+[Self-hosting](#self-hosting).
+
 ## Stack
 
 | Layer | Technology |
@@ -57,7 +63,10 @@ npm run dev
 App: `http://localhost:5173`. The dev server proxies `/api` to the backend, so
 there is no cross-origin traffic and CORS stays switched off.
 
-Register an account in the UI, create a workspace, and you are its owner.
+The first time you open the app it redirects to `/setup`, because no one has
+claimed the instance yet. Work through the four steps, and the account you create
+at the end is signed in and holds the instance settings. Create a workspace and
+you are its owner.
 
 ### Everything in containers
 
@@ -75,6 +84,109 @@ backend over the compose network. Compose reads `.env` automatically.
 > `SSL_ERROR_RX_RECORD_TOO_LONG` (Firefox) or `ERR_SSL_PROTOCOL_ERROR` (Chrome).
 > If your browser has cached the upgrade, open a private window, or clear the
 > HSTS entry for `localhost` in `about:networking#hsts` / `chrome://net-internals/#hsts`.
+
+## Pages
+
+| Route | Needs an account | What |
+|-------|------------------|------|
+| `/` | no | Homepage: what DevForge is, features, how it works |
+| `/docs` | no | This instance's handbook, or the directory of published workspaces |
+| `/docs/:handle` | no | Everything one owner has published |
+| `/docs/:handle/:workspace/:page` | no | Any published workspace's documentation |
+| `/login`, `/register` | no | |
+| `/app` | yes | Your workspaces |
+| `/workspaces/:id/…` | yes | Documents, boards, team, settings |
+
+The homepage and handbook share a header, so the documentation is one click away
+from anywhere and vice versa.
+
+## The handbook
+
+DevForge documents itself. `scripts/seed_handbook.py` creates a **DevForge
+Handbook** workspace holding the platform's own documentation — 23 pages, 34 typed
+references, and a learning board whose tasks cite the pages that explain them:
+
+```bash
+python3 scripts/seed_handbook.py            # create or update it
+python3 scripts/seed_handbook.py --publish  # and make it public
+```
+
+The script is idempotent: run it again after editing the content definitions and it
+updates existing pages **in place**, so their ids survive and every reference and
+task citation pointing at them stays intact.
+
+**`/docs` renders that workspace live.** Edit a page in the app and reload the
+docs — no build, no deploy, no export step. The Connections panel on each page is
+the real reference graph, so *The typed reference graph* shows backlinks nobody
+wrote by hand.
+
+It is therefore both the manual and a worked example of what the product is for.
+
+## Publishing documentation
+
+Any workspace can publish its documentation as a public site inside the app — the
+handbook is just the first one to do it.
+
+An admin publishes from **Settings → Public documentation**. The workspace's pages
+then become readable at `/docs/{handle}/{workspace-slug}`, by anyone, with no
+account. Only documentation is exposed: boards, tasks, and the team list stay
+private.
+
+### Namespaced like a repository
+
+Every account gets a **handle** — URL-safe, unique, derived from the email address
+at registration and suffixed if taken (`ada`, `ada-2`). It namespaces the workspaces
+that account owns, so slugs only have to be unique *per owner*:
+
+```
+/docs/acme/nokia        and        /docs/globex/nokia
+```
+
+Both teams get the obvious name. Before this, workspace slugs were unique across the
+whole instance, so the first team to take `nokia` blocked everyone else.
+
+`/docs/{handle}` lists everything one owner has published. In-app routes are
+unaffected — they address workspaces by id, not by slug. Links written before the
+change still work: an unambiguous `/docs/{slug}` redirects to its canonical path, and
+an ambiguous one falls back to the directory rather than guessing.
+
+### Opt-out, with the state made obvious
+
+Publishing exposes every page **except** those marked internal. That is the useful
+default — a 23-page handbook should not need 23 decisions — but it means a page
+written later is public as soon as it is saved. So the state is never hidden:
+
+- The navigation rail carries a **Documentation is public** banner on every screen
+  in a published workspace.
+- Each document shows a **Public** or **Internal** badge beside its type.
+- The editor has a *Keep this page internal* control that says what will happen.
+- Settings counts both figures, and the publish confirmation names how many pages
+  it is about to expose.
+
+Mark a page internal and it stays private whether or not the workspace is
+published.
+
+### How this stays contained
+
+The public endpoints are the only unauthenticated view of workspace content, so
+containment is structural rather than a check someone has to remember:
+
+- `WorkspaceLookup.findPublished` **cannot return an unpublished workspace** — a
+  private one is never loaded, so there is nothing to leak.
+- Every public document read goes through a repository method that filters
+  `internal = false` **in SQL**, not in Java.
+- References resolve through the same public-only lookup, so a public page never
+  reveals the title of an internal page it links to.
+
+Each of those is pinned by an integration test.
+
+`/docs` with no owner opens this instance's own handbook, set as `handle/slug`
+under **Instance → Public documentation → Handbook path**. Leave it blank and
+`/docs` lists every published workspace instead.
+
+An operator can switch public documentation off entirely. That takes every
+published site offline at once and refuses new publications — nothing is deleted,
+and publishing works again the moment it is switched back on.
 
 ## Architecture
 
@@ -235,6 +347,18 @@ Editing a task never changes its placement — column and position move through 
 dedicated `position` endpoint, so an ordinary edit cannot silently reorder a board.
 Columns may carry a work-in-progress limit, checked when a task arrives.
 
+### Instance
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/public/instance` | Branding and registration policy. No session; how the client renders its own header |
+| `POST` | `/api/setup` | First-run setup. Refuses once the instance is configured |
+| `GET` | `/api/instance` | Full settings, including operational ones (instance admin) |
+| `PUT` | `/api/instance` | Change the settings (instance admin) |
+| `POST` | `/api/instance/users` | Create an account regardless of registration mode (instance admin) |
+| `GET` | `/api/instance/admins` | List this instance's operators (instance admin) |
+| `PUT` | `/api/instance/users/{id}/admin` | Grant or revoke instance administration (instance admin) |
+
 ## Testing
 
 ### Backend
@@ -267,7 +391,97 @@ behaviour instead of URLs. `applyMoveLocally` is tested against the same cases a
 the backend's `TaskOrdering`, because the optimistic drag-and-drop update has to
 agree with the server or the board would visibly snap back.
 
+## Self-hosting
+
+DevForge is designed to be run by whoever uses it. Everything that makes one
+deployment different from another lives in its database, not in the build — so
+the same image serves a public instance, a company's private one, and a
+single-person notebook.
+
+### Bring it up
+
+```bash
+git clone <your fork or this repository>
+cd devforge
+cp .env.example .env
+openssl rand -base64 48        # paste as DEVFORGE_JWT_SECRET in .env
+docker compose --profile full up --build -d
+```
+
+Open `http://localhost:3000` (type the `http://` — see the note above). An
+unclaimed instance redirects every route to `/setup` and shows nothing else.
+
+### First-run setup
+
+Setup runs **once**. It refuses forever afterwards, so a deployment that is
+briefly reachable before you finish configuring it cannot be claimed by whoever
+gets there second, and the endpoint can never be used to mint an administrator on
+a running instance. There is no recovery path in the product if someone else
+completes it first: bring the instance up on a closed port, or finish setup
+immediately.
+
+The four steps:
+
+| Step | What it decides |
+|------|-----------------|
+| **Identity** | Name, tagline, and public address. The name appears in the header, on the sign-in screen, and in the browser tab. |
+| **Appearance** | A mark (a character or an uploaded image) and an accent colour. The accent replaces one design token; nothing else in the interface moves. |
+| **Access** | Whether people may sign themselves up, and from which email domains. |
+| **Operator** | The first administrator. This account owns the instance settings and is the only way to add people on a closed instance. |
+
+Everything except the operator account can be changed later, from
+**Instance settings** in the workspace header.
+
+### Registration modes
+
+| Mode | Who can create an account | Suits |
+|------|---------------------------|-------|
+| `OPEN` | Anyone who can reach the deployment | A public instance |
+| `RESTRICTED` | Anyone with an email at a listed domain | A company instance on a public address |
+| `CLOSED` | Nobody — the operator creates every account | A private or single-team instance |
+
+`RESTRICTED` matches the domain exactly; subdomains are not included. An instance
+cannot be left in `RESTRICTED` with no domains listed, because it would accept
+nobody — the server refuses those settings outright.
+
+On a closed instance, **Instance → Operators → Add operator** creates accounts
+directly, bypassing the registration mode. It is also how a colleague already on
+the instance is appointed as a second administrator.
+
+### Keep a second operator
+
+An instance whose only administrator loses their password cannot be reconfigured
+by anything inside the product. The settings screen therefore refuses to remove
+the last administrator, and says so. Appoint a second one early.
+
+### What an operator controls
+
+| Setting | Effect |
+|---------|--------|
+| Name, tagline, mark, logo image, accent | Branding, applied everywhere the client renders |
+| Registration mode and allowed domains | Who may create an account |
+| Allow public documentation | Master switch for published documentation. Off takes every published site offline at once |
+| Handbook path | Which published workspace `/docs` opens by default, as `handle/slug` |
+| Public address | Used to build absolute links; never shown to visitors |
+
+Branding is read from `GET /api/public/instance`, which needs no session — the
+sign-in screen has to know the instance's name before anyone has signed in. That
+endpoint deliberately omits operational settings such as the public address.
+
+### Upgrading
+
+Flyway migrations run at startup, so an upgrade is a redeploy. The instance
+settings row survives it, along with everything else in the database. Back up
+with `pg_dump`; a logo image lives in that row rather than in object storage, so
+a database dump is a complete backup.
+
 ## Configuration
+
+These are the settings that must exist before the application can start — the
+database it talks to and the key it signs tokens with. Everything an operator
+would recognise as a *product* setting (name, mark, registration policy, whether
+documentation is public) lives in the database and is set through
+[first-run setup](#first-run-setup), not here.
 
 Every value has a working development default, so the app runs with no setup at
 all. Copy `.env.example` to `.env` and generate a secret before anyone else can
@@ -312,3 +526,7 @@ Deliberate omissions, in rough priority order:
 - **A rendered graph view.** Connections are listed per document; there is no
   whole-workspace visualisation.
 - **Rate limiting** on the authentication endpoints.
+- **Password reset.** An operator can create accounts and hand out a temporary
+  password, but nobody can reset their own.
+- **SMTP.** Nothing sends email, so registration is not verified and there are no
+  invitations.

@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { documentApi, memberApi } from '../../shared/api/endpoints'
 import { queryKeys } from '../../shared/api/queryKeys'
+import { DOCUMENT_PICKER_SIZE } from '../documents/useDocuments'
 import { ApiError } from '../../shared/api/client'
 import { Badge } from '../../shared/components/Badge'
 import { Button } from '../../shared/components/Button'
@@ -71,8 +72,8 @@ export function TaskDialog({
   })
 
   const { data: documents } = useQuery({
-    queryKey: queryKeys.documents.list(workspaceId, 'ALL', 0),
-    queryFn: () => documentApi.list(workspaceId, { size: 100 }),
+    queryKey: queryKeys.documents.list(workspaceId, 'ALL', 0, DOCUMENT_PICKER_SIZE),
+    queryFn: () => documentApi.list(workspaceId, { size: DOCUMENT_PICKER_SIZE }),
     enabled: open,
   })
 

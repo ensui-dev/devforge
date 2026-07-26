@@ -65,12 +65,14 @@ public class WorkspaceService {
     /** The creator is enrolled as {@code OWNER} in the same transaction. */
     @Transactional
     public WorkspaceResponse create(CreateWorkspaceRequest request, UUID creatorId) {
-        if (workspaceRepository.existsBySlug(request.slug())) {
-            throw new DuplicateResourceException("Workspace slug already exists: " + request.slug());
+        // Slugs are unique per owner, so another team's "platform" is no obstacle.
+        if (workspaceRepository.existsByOwnerUserIdAndSlug(creatorId, request.slug())) {
+            throw new DuplicateResourceException(
+                    "You already have a workspace with the slug: " + request.slug());
         }
 
         Workspace workspace = workspaceRepository.save(
-                new Workspace(request.name(), request.description(), request.slug()));
+                new Workspace(request.name(), request.description(), request.slug(), creatorId));
         memberRepository.save(new WorkspaceMember(workspace.getId(), creatorId, WorkspaceRole.OWNER));
 
         return WorkspaceResponse.from(workspace, WorkspaceRole.OWNER);
@@ -81,8 +83,11 @@ public class WorkspaceService {
         WorkspaceRef ref = workspaceAccess.requireAccess(workspaceId, userId, WorkspaceRole.ADMIN);
         Workspace workspace = loadWorkspace(workspaceId);
 
-        if (!workspace.getSlug().equals(request.slug()) && workspaceRepository.existsBySlug(request.slug())) {
-            throw new DuplicateResourceException("Workspace slug already exists: " + request.slug());
+        if (!workspace.getSlug().equals(request.slug())
+                && workspaceRepository.existsByOwnerUserIdAndSlug(
+                        workspace.getOwnerUserId(), request.slug())) {
+            throw new DuplicateResourceException(
+                    "This owner already has a workspace with the slug: " + request.slug());
         }
 
         workspace.describe(request.name(), request.description(), request.slug());

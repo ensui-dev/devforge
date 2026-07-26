@@ -1,0 +1,91 @@
+@import '../../styles/utilities.css';
+
+.publication {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 34rem;
+  padding: var(--space-5);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+}
+
+/*
+ * A published workspace is visibly different from a private one. The state is
+ * consequential — anyone can read these pages — so it should never be something
+ * you have to go looking for.
+ */
+.publication--live {
+  border-color: color-mix(in srgb, var(--success) 40%, transparent);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--success-wash) 60%, var(--paper-raised)),
+    var(--paper-raised) 4rem
+  );
+}
+
+.publication__head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.publication__title {
+  font-size: var(--text-base);
+}
+
+.publication__detail {
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.publication__link {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--paper-sunken);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.publication__url {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.publication__counts {
+  display: flex;
+  gap: var(--space-6);
+  margin: 0;
+}
+
+.publication__counts div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.publication__counts dd {
+  margin: 0;
+}
+
+.publication__figure {
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.publication__note {
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+
+.publication__actions {
+  display: flex;
+  gap: var(--space-2);
+}

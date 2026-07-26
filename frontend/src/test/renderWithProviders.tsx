@@ -5,11 +5,20 @@ import type { ReactElement, ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { AuthProvider } from '../shared/auth/AuthProvider'
 import { ToastProvider } from '../shared/components/Toast'
+import { FALLBACK_INSTANCE, InstanceContext } from '../shared/instance/InstanceContext'
+import type { Instance } from '../shared/types'
 
 interface RenderOptions {
   /** Initial history entries, for testing route-dependent screens. */
   route?: string
   withAuth?: boolean
+  /**
+   * Overrides for this deployment's settings.
+   *
+   * Supplied directly rather than fetched, so a test that cares about branding or
+   * registration policy states it in the test rather than in a request mock.
+   */
+  instance?: Partial<Instance>
 }
 
 /**
@@ -20,7 +29,7 @@ interface RenderOptions {
  */
 export function renderWithProviders(
   ui: ReactElement,
-  { route = '/', withAuth = false }: RenderOptions = {},
+  { route = '/', withAuth = false, instance }: RenderOptions = {},
 ): RenderResult & { queryClient: QueryClient } {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -29,15 +38,29 @@ export function renderWithProviders(
     },
   })
 
+  const resolved: Instance = { ...FALLBACK_INSTANCE, ...instance }
+  const instanceValue = {
+    instance: resolved,
+    isLoading: false,
+    docsPath: (slug?: string) => {
+      if (!resolved.handbookPath) {
+        return '/docs'
+      }
+      return slug ? `/docs/${resolved.handbookPath}/${slug}` : `/docs/${resolved.handbookPath}`
+    },
+  }
+
   const wrap = (children: ReactNode) =>
     withAuth ? <AuthProvider>{children}</AuthProvider> : <>{children}</>
 
   const result = render(
     <QueryClientProvider client={queryClient}>
       {wrap(
-        <ToastProvider>
-          <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
-        </ToastProvider>,
+        <InstanceContext.Provider value={instanceValue}>
+          <ToastProvider>
+            <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
+          </ToastProvider>
+        </InstanceContext.Provider>,
       )}
     </QueryClientProvider>,
   )

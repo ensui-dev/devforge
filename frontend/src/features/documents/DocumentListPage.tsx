@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Badge } from '../../shared/components/Badge'
 import { Button } from '../../shared/components/Button'
@@ -45,6 +45,19 @@ export function DocumentListPage() {
 
   const canWrite = roleAtLeast(workspace.callerRole, 'MEMBER')
   const searching = search.trim().length > 0
+  const filtered = !searching && documentType !== 'ALL'
+
+  /*
+   * Self-corrects a page that no longer exists — after a delete, or a filter that
+   * shortens the list. Without this the page renders empty *and* the pager
+   * disappears with it (it lives inside the has-content branch), leaving no way
+   * back to the results.
+   */
+  useEffect(() => {
+    if (data && data.totalPages > 0 && page >= data.totalPages) {
+      setPage(data.totalPages - 1)
+    }
+  }, [data, page])
 
   return (
     <div className="stack">
@@ -105,6 +118,12 @@ export function DocumentListPage() {
       {isPending ? <LoadingState label="Loading documents" /> : null}
       {error ? <ErrorState error={error} onRetry={refetch} /> : null}
 
+      {/*
+        An empty result has three different causes, and saying "no documents yet"
+        for all of them tells the reader something untrue — a filter matching
+        nothing is not an empty workspace. Each case names its cause and offers
+        the way out of it.
+      */}
       {data && data.content.length === 0 ? (
         searching ? (
           <EmptyState
@@ -113,6 +132,16 @@ export function DocumentListPage() {
             action={
               <Button variant="secondary" onClick={() => setSearch('')}>
                 Clear search
+              </Button>
+            }
+          />
+        ) : filtered ? (
+          <EmptyState
+            title={`No ${DOCUMENT_TYPE_LABELS[documentType as DocumentType].toLowerCase()} documents`}
+            description="This workspace has documents of other types. Clear the filter to see them all."
+            action={
+              <Button variant="secondary" onClick={() => setDocumentType('ALL')}>
+                Show all documents
               </Button>
             }
           />
@@ -142,6 +171,7 @@ export function DocumentListPage() {
                   <div className="doc-row__head">
                     <Badge tone="trace">{DOCUMENT_TYPE_LABELS[document.documentType]}</Badge>
                     <span className="doc-row__slug">/{document.slug}</span>
+                    {document.internal ? <Badge tone="neutral">Internal</Badge> : null}
                   </div>
                   <h2 className="doc-row__title">{document.title}</h2>
                   {document.excerpt ? <p className="doc-row__excerpt">{document.excerpt}</p> : null}

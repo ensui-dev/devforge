@@ -35,6 +35,9 @@ class WorkspaceAccessServiceTest {
     @Mock
     private WorkspaceMemberRepository memberRepository;
 
+    @Mock
+    private com.devforge.identity.contract.UserDirectory userDirectory;
+
     @InjectMocks
     private WorkspaceAccessService workspaceAccessService;
 
@@ -46,7 +49,7 @@ class WorkspaceAccessServiceTest {
     void setUp() {
         workspaceId = UUID.randomUUID();
         userId = UUID.randomUUID();
-        workspace = new Workspace("Platform", "Core services", "platform");
+        workspace = new Workspace("Platform", "Core services", "platform", userId);
     }
 
     @Test

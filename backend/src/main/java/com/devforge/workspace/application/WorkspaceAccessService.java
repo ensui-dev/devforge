@@ -1,8 +1,11 @@
 package com.devforge.workspace.application;
 
+import com.devforge.identity.contract.UserDirectory;
+import com.devforge.identity.contract.UserRef;
 import com.devforge.shared.exception.PermissionDeniedException;
 import com.devforge.shared.exception.ResourceNotFoundException;
 import com.devforge.workspace.contract.WorkspaceAccess;
+import com.devforge.workspace.contract.WorkspaceLookup;
 import com.devforge.workspace.contract.WorkspaceRef;
 import com.devforge.workspace.contract.WorkspaceRole;
 import com.devforge.workspace.domain.Workspace;
@@ -23,17 +26,20 @@ import java.util.UUID;
  */
 @Service
 @Transactional(readOnly = true)
-public class WorkspaceAccessService implements WorkspaceAccess {
+public class WorkspaceAccessService implements WorkspaceAccess, WorkspaceLookup {
 
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository memberRepository;
+    private final UserDirectory userDirectory;
 
     public WorkspaceAccessService(
             WorkspaceRepository workspaceRepository,
-            WorkspaceMemberRepository memberRepository
+            WorkspaceMemberRepository memberRepository,
+            UserDirectory userDirectory
     ) {
         this.workspaceRepository = workspaceRepository;
         this.memberRepository = memberRepository;
+        this.userDirectory = userDirectory;
     }
 
     @Override
@@ -56,6 +62,61 @@ public class WorkspaceAccessService implements WorkspaceAccess {
                 workspace.getName(),
                 workspace.getSlug(),
                 membership.getRole()
+        );
+    }
+
+    @Override
+    public java.util.Optional<PublishedWorkspace> findPublished(String handle, String slug) {
+        return userDirectory.findByHandle(handle)
+                .flatMap(owner -> workspaceRepository
+                        .findByOwnerUserIdAndSlugAndPublishedAtIsNotNull(owner.id(), slug)
+                        .map(workspace -> toPublished(workspace, owner.handle())));
+    }
+
+    @Override
+    public java.util.List<PublishedWorkspace> findPublishedByOwner(String handle) {
+        return userDirectory.findByHandle(handle)
+                .map(owner -> workspaceRepository
+                        .findAllByOwnerUserIdAndPublishedAtIsNotNullOrderByNameAsc(owner.id())
+                        .stream()
+                        .map(workspace -> toPublished(workspace, owner.handle()))
+                        .toList())
+                .orElseGet(java.util.List::of);
+    }
+
+    @Override
+    public java.util.List<PublishedWorkspace> findAllPublished() {
+        return withHandles(workspaceRepository.findAllByPublishedAtIsNotNullOrderByNameAsc());
+    }
+
+    @Override
+    public java.util.List<PublishedWorkspace> findPublishedBySlug(String slug) {
+        return withHandles(workspaceRepository.findAllBySlugAndPublishedAtIsNotNull(slug));
+    }
+
+    /** Resolves every owner handle in one call rather than one query per workspace. */
+    private java.util.List<PublishedWorkspace> withHandles(java.util.List<Workspace> workspaces) {
+        if (workspaces.isEmpty()) {
+            return java.util.List.of();
+        }
+        java.util.Map<UUID, UserRef> owners = userDirectory.findAllByIds(
+                workspaces.stream().map(Workspace::getOwnerUserId).distinct().toList());
+
+        return workspaces.stream()
+                .filter(workspace -> owners.containsKey(workspace.getOwnerUserId()))
+                .map(workspace -> toPublished(
+                        workspace, owners.get(workspace.getOwnerUserId()).handle()))
+                .toList();
+    }
+
+    private static PublishedWorkspace toPublished(Workspace workspace, String ownerHandle) {
+        return new PublishedWorkspace(
+                workspace.getId(),
+                workspace.getName(),
+                workspace.getSlug(),
+                ownerHandle,
+                workspace.getDescription(),
+                workspace.getPublishedAt()
         );
     }
 }

@@ -36,6 +36,10 @@ export interface User {
   id: string
   email: string
   displayName: string
+  /** URL-safe name that namespaces the workspaces this user owns. */
+  handle: string
+  /** Whether this account may configure the instance. Absent for other people. */
+  instanceAdmin?: boolean
 }
 
 export interface AuthenticationResult {
@@ -70,6 +74,8 @@ export interface DocumentSummary {
   slug: string
   excerpt: string
   documentType: DocumentType
+  /** Held back from the public site even when the workspace is published. */
+  internal: boolean
   createdAt: string
   updatedAt: string
 }
@@ -81,6 +87,7 @@ export interface DocumentDetail {
   slug: string
   content: string
   documentType: DocumentType
+  internal: boolean
   createdAt: string
   updatedAt: string
 }
@@ -184,6 +191,7 @@ export interface DocumentPayload {
   slug: string
   content?: string
   documentType: DocumentType
+  internal?: boolean
 }
 
 export interface CreateTaskPayload {
@@ -252,4 +260,140 @@ export const ROLE_DESCRIPTIONS: Record<WorkspaceRole, string> = {
   MEMBER: 'Writes documents, boards, and tasks',
   ADMIN: 'Manages the team and deletes boards',
   OWNER: 'Full control, including deleting the workspace',
+}
+
+/* Public documentation — the handbook workspace, served without a session. */
+
+export interface HandbookEntry {
+  id: string
+  title: string
+  slug: string
+  documentType: DocumentType
+}
+
+export interface Handbook {
+  name: string
+  slug: string
+  /** Namespaces the slug: this documentation lives at /docs/{ownerHandle}/{slug}. */
+  ownerHandle: string
+  description: string | null
+  entries: HandbookEntry[]
+}
+
+/** One entry in the public documentation directory. */
+export interface PublishedWorkspace {
+  name: string
+  slug: string
+  ownerHandle: string
+  /** Canonical address: /docs/{ownerHandle}/{slug}. */
+  publicPath: string
+  description: string | null
+  pageCount: number
+  publishedAt: string
+}
+
+/** Everything one owner has published. */
+export interface OwnerDocs {
+  handle: string
+  workspaces: PublishedWorkspace[]
+  /**
+   * Where a legacy /docs/{slug} link now lives, when this segment is not a handle
+   * but does resolve to exactly one published workspace.
+   */
+  movedTo: string | null
+}
+
+/** Whether a workspace's documentation is public, and what that exposes. */
+export interface Publication {
+  published: boolean
+  publishedAt: string | null
+  /** Where the documentation is served, or null while private. */
+  publicPath: string | null
+  publicPages: number
+  internalPages: number
+}
+
+export interface PublicDocument {
+  id: string
+  title: string
+  slug: string
+  content: string
+  documentType: DocumentType
+  references: DocumentReference[]
+  updatedAt: string
+}
+
+/* This deployment. DevForge is self-hostable, so nothing about the instance —
+   its name, its mark, whether it accepts registrations — is a constant. */
+
+export type RegistrationMode = 'OPEN' | 'RESTRICTED' | 'CLOSED'
+
+/** What an unauthenticated visitor is told, and all the client needs to brand itself. */
+export interface Instance {
+  /** False until someone completes first-run setup. */
+  configured: boolean
+  name: string
+  tagline: string | null
+  logoMark: string | null
+  /** Data URI, when the operator uploaded a mark instead of typing one. */
+  logoImage: string | null
+  accentColor: string | null
+  registrationMode: RegistrationMode
+  /** Listed so the sign-up form can explain a refusal before it happens. */
+  allowedEmailDomains: string[]
+  publicDocsEnabled: boolean
+  /** The documentation this instance opens by default, as `handle/slug`. */
+  handbookPath: string | null
+}
+
+/** The operator's view, which carries settings a visitor has no business seeing. */
+export interface AdminInstance {
+  instance: Instance
+  allowedEmailDomains: string | null
+  publicBaseUrl: string | null
+  setupCompletedAt: string | null
+}
+
+export interface InstanceSettingsPayload {
+  name: string
+  tagline: string
+  logoMark: string
+  logoImage: string
+  accentColor: string
+  registrationMode: RegistrationMode
+  allowedEmailDomains: string
+  publicDocsEnabled: boolean
+  handbookPath: string
+  publicBaseUrl: string
+}
+
+export interface SetupPayload {
+  instance: InstanceSettingsPayload
+  admin: {
+    email: string
+    displayName: string
+    password: string
+  }
+}
+
+export interface SetupResult {
+  instance: Instance
+  /** Echoed so the sign-in form that follows can be prefilled. */
+  adminEmail: string
+}
+
+/** An account as the operator sees it. */
+export interface InstanceUser {
+  id: string
+  email: string
+  displayName: string
+  handle: string
+  instanceAdmin: boolean
+}
+
+export interface CreateAccountPayload {
+  email: string
+  displayName: string
+  password: string
+  instanceAdmin: boolean
 }

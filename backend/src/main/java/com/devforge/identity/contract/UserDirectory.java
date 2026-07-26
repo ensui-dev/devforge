@@ -20,6 +20,9 @@ public interface UserDirectory {
 
     Optional<UserRef> findByEmail(String email);
 
+    /** Resolves the namespace segment of a public documentation path. */
+    Optional<UserRef> findByHandle(String handle);
+
     /**
      * Resolves many users at once, so callers rendering a list of assignees or
      * members do not issue a query per row.
@@ -34,4 +37,10 @@ public interface UserDirectory {
      * @throws com.devforge.shared.exception.ResourceNotFoundException if absent
      */
     UserRef require(UUID userId);
+
+    /** Whether this account may configure the instance. */
+    boolean isInstanceAdmin(UUID userId);
+
+    /** Every account that may configure the instance, for the operator's own screen. */
+    List<UserRef> instanceAdmins();
 }

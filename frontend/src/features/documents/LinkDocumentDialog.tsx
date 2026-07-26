@@ -13,7 +13,7 @@ import {
   REFERENCE_TYPE_LABELS,
   type ReferenceType,
 } from '../../shared/types'
-import { useAddReference } from './useDocuments'
+import { DOCUMENT_PICKER_SIZE, useAddReference } from './useDocuments'
 import './LinkDocumentDialog.css'
 
 interface LinkDocumentDialogProps {
@@ -44,8 +44,8 @@ export function LinkDocumentDialog({
 
   // A single generous page is enough to pick from; the search box narrows it.
   const { data, isPending } = useQuery({
-    queryKey: queryKeys.documents.list(workspaceId, 'ALL', 0),
-    queryFn: () => documentApi.list(workspaceId, { size: 100 }),
+    queryKey: queryKeys.documents.list(workspaceId, 'ALL', 0, DOCUMENT_PICKER_SIZE),
+    queryFn: () => documentApi.list(workspaceId, { size: DOCUMENT_PICKER_SIZE }),
     enabled: open,
   })
 

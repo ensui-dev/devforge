@@ -23,6 +23,7 @@ public record DocumentSummaryResponse(
         String slug,
         String excerpt,
         DocumentType documentType,
+        boolean internal,
         Instant createdAt,
         Instant updatedAt
 ) {
@@ -37,6 +38,7 @@ public record DocumentSummaryResponse(
                 document.getSlug(),
                 excerptOf(document.getContent()),
                 document.getDocumentType(),
+                document.isInternal(),
                 document.getCreatedAt(),
                 document.getUpdatedAt()
         );

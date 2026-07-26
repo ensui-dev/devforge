@@ -1,0 +1,40 @@
+/*
+ * The instance's signature. Deliberately unstyled beyond alignment and the glyph
+ * plate — it sits inside a header, a preview, and a settings panel, and each of
+ * those sets its own size.
+ */
+
+.imark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.imark__glyph,
+.imark__image {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.75em;
+  height: 1.75em;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--imark-accent, var(--trace)) 14%, transparent);
+  color: var(--imark-accent, var(--trace));
+  font-size: 0.95em;
+  line-height: 1;
+}
+
+.imark__image {
+  object-fit: contain;
+  background: none;
+  padding: 0;
+}
+
+.imark__name {
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

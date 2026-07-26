@@ -39,6 +39,12 @@ public class UserDirectoryService implements UserDirectory {
     }
 
     @Override
+    public Optional<UserRef> findByHandle(String handle) {
+        return userRepository.findByHandle(handle == null ? "" : handle.trim().toLowerCase())
+                .map(UserDirectoryService::toRef);
+    }
+
+    @Override
     public Map<UUID, UserRef> findAllByIds(Collection<UUID> userIds) {
         if (userIds.isEmpty()) {
             return Map.of();
@@ -63,11 +69,23 @@ public class UserDirectoryService implements UserDirectory {
     }
 
     @Override
+    public boolean isInstanceAdmin(UUID userId) {
+        return userRepository.findById(userId).map(User::isInstanceAdmin).orElse(false);
+    }
+
+    @Override
+    public List<UserRef> instanceAdmins() {
+        return userRepository.findAllByInstanceAdminTrueOrderByDisplayNameAsc().stream()
+                .map(UserDirectoryService::toRef)
+                .toList();
+    }
+
+    @Override
     public UserRef require(UUID userId) {
         return findById(userId).orElseThrow(() -> new ResourceNotFoundException("User", userId));
     }
 
     private static UserRef toRef(User user) {
-        return new UserRef(user.getId(), user.getEmail(), user.getDisplayName());
+        return new UserRef(user.getId(), user.getEmail(), user.getDisplayName(), user.getHandle());
     }
 }

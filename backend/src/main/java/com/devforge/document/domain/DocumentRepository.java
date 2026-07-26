@@ -30,6 +30,25 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
 
     List<Document> findByWorkspaceIdAndIdIn(UUID workspaceId, Collection<UUID> ids);
 
+    /** Unpaged listing, used only for a published workspace's navigation. */
+    List<Document> findAllByWorkspaceIdOrderByTitleAsc(UUID workspaceId);
+
+    /*
+     * The public reads. Every one filters on `internal = false` in the query rather
+     * than in Java, so a page held back cannot be exposed by a caller forgetting to
+     * filter a result set.
+     */
+
+    List<Document> findAllByWorkspaceIdAndInternalFalseOrderByTitleAsc(UUID workspaceId);
+
+    Optional<Document> findByWorkspaceIdAndSlugAndInternalFalse(UUID workspaceId, String slug);
+
+    List<Document> findByWorkspaceIdAndInternalFalseAndIdIn(UUID workspaceId, Collection<UUID> ids);
+
+    int countByWorkspaceIdAndInternalFalse(UUID workspaceId);
+
+    int countByWorkspaceIdAndInternalTrue(UUID workspaceId);
+
     /**
      * Ranked full-text search over title and body.
      *
@@ -43,9 +62,13 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
      * unmapped {@code tsvector} column is never returned.
      */
     @Query(
+            // Every mapped column must appear here, or Hibernate cannot build the
+            // entity. `SELECT *` is not an option because the generated tsvector
+            // column is deliberately unmapped — so adding a field to Document means
+            // adding it to this list too.
             value = """
                     SELECT d.id, d.workspace_id, d.title, d.slug, d.content, d.document_type,
-                           d.created_at, d.updated_at, d.version
+                           d.internal, d.created_at, d.updated_at, d.version
                     FROM documents d
                     WHERE d.workspace_id = :workspaceId
                       AND d.search_vector @@ websearch_to_tsquery('english', :query)

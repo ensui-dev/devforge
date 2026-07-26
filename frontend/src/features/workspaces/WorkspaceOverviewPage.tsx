@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { boardApi, documentApi, memberApi } from '../../shared/api/endpoints'
 import { queryKeys } from '../../shared/api/queryKeys'
+import { OVERVIEW_DOCUMENT_COUNT } from '../documents/useDocuments'
 import { Badge } from '../../shared/components/Badge'
 import { Button } from '../../shared/components/Button'
 import { DOCUMENT_TYPE_LABELS, roleAtLeast } from '../../shared/types'
@@ -13,8 +14,8 @@ export function WorkspaceOverviewPage() {
   const workspace = useCurrentWorkspace()
 
   const documents = useQuery({
-    queryKey: queryKeys.documents.list(workspace.id, 'ALL', 0),
-    queryFn: () => documentApi.list(workspace.id, { size: 5 }),
+    queryKey: queryKeys.documents.list(workspace.id, 'ALL', 0, OVERVIEW_DOCUMENT_COUNT),
+    queryFn: () => documentApi.list(workspace.id, { size: OVERVIEW_DOCUMENT_COUNT }),
   })
 
   const boards = useQuery({

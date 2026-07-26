@@ -2,11 +2,10 @@ package com.devforge.identity.application;
 
 import com.devforge.identity.domain.User;
 import com.devforge.identity.domain.UserRepository;
-import com.devforge.shared.exception.DuplicateResourceException;
+import com.devforge.shared.exception.PermissionDeniedException;
 import com.devforge.shared.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -20,6 +19,8 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,14 +37,25 @@ class AuthServiceTest {
     @Mock
     private AccessTokenIssuer accessTokenIssuer;
 
+    @Mock
+    private AccountProvisioningService accountProvisioning;
+
+    @Mock
+    private com.devforge.instance.contract.InstancePolicy instancePolicy;
+
     @InjectMocks
     private AuthService authService;
 
+    /** Registration is refused unless the instance permits it, so most tests allow it. */
+    private void givenRegistrationAllowed() {
+        when(instancePolicy.registrationAllowedFor(any())).thenReturn(true);
+    }
+
     @Test
-    void registersAUserWithAHashedPassword() {
-        when(userRepository.existsByEmail("dev@example.com")).thenReturn(false);
-        when(passwordEncoder.encode("password123")).thenReturn("hashed");
-        when(userRepository.save(any(User.class))).thenAnswer(call -> call.getArgument(0));
+    void registersAUserWhenTheInstanceAllowsIt() {
+        givenRegistrationAllowed();
+        when(accountProvisioning.create(any(), any(), any(), eq(false)))
+                .thenReturn(new User("dev@example.com", "Dev", "dev", "hashed"));
         givenTokenIssued();
 
         AuthenticationResponse response = authService.register(
@@ -52,43 +64,39 @@ class AuthServiceTest {
         assertThat(response.accessToken()).isEqualTo("issued-token");
         assertThat(response.tokenType()).isEqualTo("Bearer");
         assertThat(response.user().email()).isEqualTo("dev@example.com");
-
-        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).save(captor.capture());
-        assertThat(captor.getValue().getPasswordHash())
-                .as("raw password must never be stored")
-                .isEqualTo("hashed");
     }
 
     @Test
-    void normalisesEmailAndTrimsNameOnRegistration() {
-        when(userRepository.existsByEmail("dev@example.com")).thenReturn(false);
-        when(passwordEncoder.encode(any())).thenReturn("hashed");
-        when(userRepository.save(any(User.class))).thenAnswer(call -> call.getArgument(0));
+    void normalisesTheEmailBeforeCheckingPolicy() {
+        givenRegistrationAllowed();
+        when(accountProvisioning.create(any(), any(), any(), eq(false)))
+                .thenReturn(new User("dev@example.com", "Dev Name", "dev", "hashed"));
         givenTokenIssued();
 
         authService.register(new RegisterRequest("  Dev@Example.COM  ", "  Dev Name  ", "password123"));
 
-        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).save(captor.capture());
-        assertThat(captor.getValue().getEmail()).isEqualTo("dev@example.com");
-        assertThat(captor.getValue().getDisplayName()).isEqualTo("Dev Name");
+        // Policy decides on the folded address, not on whatever casing was typed.
+        verify(instancePolicy).registrationAllowedFor("dev@example.com");
     }
 
+    /** The operator's policy, not identity's, decides who may join. */
     @Test
-    void rejectsAnAlreadyRegisteredEmail() {
-        when(userRepository.existsByEmail("dev@example.com")).thenReturn(true);
+    void refusesRegistrationTheInstanceDoesNotPermit() {
+        when(instancePolicy.registrationAllowedFor(any())).thenReturn(false);
+        when(instancePolicy.registrationRefusalReason())
+                .thenReturn("This instance is not accepting new accounts.");
 
         assertThatThrownBy(() -> authService.register(
                 new RegisterRequest("dev@example.com", "Dev", "password123")))
-                .isInstanceOf(DuplicateResourceException.class);
+                .isInstanceOf(PermissionDeniedException.class)
+                .hasMessageContaining("not accepting new accounts");
 
-        verify(userRepository, never()).save(any());
+        verify(accountProvisioning, never()).create(any(), any(), any(), anyBoolean());
     }
 
     @Test
     void logsInWithCorrectCredentials() {
-        User user = new User("dev@example.com", "Dev", "hashed");
+        User user = new User("dev@example.com", "Dev", "dev", "hashed");
         when(userRepository.findByEmail("dev@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("password123", "hashed")).thenReturn(true);
         givenTokenIssued();
@@ -99,7 +107,7 @@ class AuthServiceTest {
 
     @Test
     void rejectsAWrongPassword() {
-        User user = new User("dev@example.com", "Dev", "hashed");
+        User user = new User("dev@example.com", "Dev", "dev", "hashed");
         when(userRepository.findByEmail("dev@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
 
@@ -120,7 +128,7 @@ class AuthServiceTest {
 
     @Test
     void looksUpTheCurrentUser() {
-        User user = new User("dev@example.com", "Dev", "hashed");
+        User user = new User("dev@example.com", "Dev", "dev", "hashed");
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
 
         assertThat(authService.currentUser(user.getId()).displayName()).isEqualTo("Dev");

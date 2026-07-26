@@ -3,15 +3,21 @@ import { useAuth } from '../../shared/auth/useAuth'
 import { Badge } from '../../shared/components/Badge'
 import { Button } from '../../shared/components/Button'
 import { ErrorState, LoadingState } from '../../shared/components/Feedback'
+import { roleAtLeast, type WorkspaceRole } from '../../shared/types'
+import { PublishedBanner } from './PublishedBanner'
 import { WorkspaceContext } from './WorkspaceContext'
 import { useWorkspace } from './useWorkspaces'
 import './WorkspaceLayout.css'
 
-const NAV_ITEMS = [
+/** `minimumRole` omitted means every member sees the section. */
+const NAV_ITEMS: { to: string; label: string; end: boolean; minimumRole?: WorkspaceRole }[] = [
   { to: '', label: 'Overview', end: true },
   { to: 'documents', label: 'Documents', end: false },
   { to: 'boards', label: 'Boards', end: false },
   { to: 'members', label: 'Team', end: false },
+  // Everything on the settings screen requires ADMIN, so a member or viewer is
+  // not offered a page they could only read.
+  { to: 'settings', label: 'Settings', end: false, minimumRole: 'ADMIN' },
 ]
 
 export function WorkspaceLayout() {
@@ -36,7 +42,7 @@ export function WorkspaceLayout() {
           onRetry={refetch}
         />
         <p>
-          <Link to="/">Back to your workspaces</Link>
+          <Link to="/app">Back to your workspaces</Link>
         </p>
       </div>
     )
@@ -46,7 +52,7 @@ export function WorkspaceLayout() {
     <WorkspaceContext.Provider value={workspace}>
       <div className="workspace-shell">
         <aside className="rail">
-          <Link className="rail__brand" to="/">
+          <Link className="rail__brand" to="/app">
             <span className="rail__mark" aria-hidden="true">
               ⌁
             </span>
@@ -61,8 +67,12 @@ export function WorkspaceLayout() {
             </Badge>
           </div>
 
+          <PublishedBanner workspace={workspace} />
+
           <nav className="rail__nav" aria-label="Workspace sections">
-            {NAV_ITEMS.map((item) => (
+            {NAV_ITEMS.filter(
+              (item) => !item.minimumRole || roleAtLeast(workspace.callerRole, item.minimumRole),
+            ).map((item) => (
               <NavLink
                 key={item.label}
                 to={item.to}

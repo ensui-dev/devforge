@@ -20,7 +20,7 @@ export function RegisterPage() {
   const [submitting, setSubmitting] = useState(false)
 
   if (!isInitialising && isAuthenticated) {
-    return <Navigate to="/" replace />
+    return <Navigate to="/app" replace />
   }
 
   const handleSubmit = async (event: FormEvent) => {
@@ -29,7 +29,7 @@ export function RegisterPage() {
     setError(null)
     try {
       await register({ email, displayName, password })
-      navigate('/', { replace: true })
+      navigate('/app', { replace: true })
     } catch (caught) {
       setError(caught)
     } finally {

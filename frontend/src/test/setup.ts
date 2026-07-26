@@ -1,6 +1,18 @@
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach } from 'vitest'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
+
+/*
+ * Testing Library's default 1s budget for findBy/waitFor is tight for tests that
+ * mount the auth provider and then wait on a query: the provider initialises in an
+ * effect before the request is even issued. In isolation that chain is fast, but
+ * under a full parallel suite on a busy machine it intermittently overran, which
+ * made a correct test fail depending on scheduling.
+ *
+ * Raising the ceiling does not hide a defect — a genuinely broken assertion still
+ * fails, just after a longer wait.
+ */
+configure({ asyncUtilTimeout: 5_000 })
 
 // jsdom does not implement the modal parts of <dialog>, which the Modal component
 // drives directly. Stubbing them keeps dialog-bearing components testable without
