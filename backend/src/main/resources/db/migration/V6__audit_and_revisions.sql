@@ -131,8 +131,15 @@ CREATE INDEX idx_revisions_document ON document_revisions (document_id, revision
 -- is unknown — nothing recorded it at the time — and saying so is better than
 -- attributing it to whoever happens to be earliest in the users table.
 -- Content first, so the revisions have something to point at.
+--
+-- convert_to(..., 'UTF8') rather than a ::bytea cast. The cast runs text through
+-- bytea_in, which *interprets* backslash escapes: content containing a literal
+-- backslash either fails outright ("invalid input syntax for type bytea") or, worse,
+-- hashes different bytes than the application does and silently stores a duplicate.
+-- convert_to yields the UTF-8 bytes, which is exactly what
+-- String.getBytes(UTF_8) gives Java.
 INSERT INTO document_contents (id, document_id, content_hash, body)
-SELECT gen_random_uuid(), d.id, encode(sha256(d.content::bytea), 'hex'), d.content
+SELECT gen_random_uuid(), d.id, encode(sha256(convert_to(d.content, 'UTF8')), 'hex'), d.content
 FROM documents d;
 
 INSERT INTO document_revisions (
@@ -141,6 +148,6 @@ INSERT INTO document_revisions (
 )
 SELECT
     gen_random_uuid(), d.id, 1, d.title, d.slug,
-    encode(sha256(d.content::bytea), 'hex'), d.document_type, d.internal,
+    encode(sha256(convert_to(d.content, 'UTF8')), 'hex'), d.document_type, d.internal,
     'CREATED', NULL, NULL, d.created_at
 FROM documents d;

@@ -4,7 +4,10 @@ import com.devforge.document.domain.DocumentContentRepository;
 import com.devforge.document.domain.DocumentRevisionRepository;
 import com.devforge.support.AbstractIntegrationTest;
 import org.junit.jupiter.api.Test;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
@@ -34,6 +37,9 @@ class ContentAddressingIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private DocumentRevisionRepository revisions;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private String body(String title, String content) {
         return """
@@ -143,8 +149,54 @@ class ContentAddressingIntegrationTest extends AbstractIntegrationTest {
 
         assertThat(contents.existsByDocumentIdAndContentHash(
                 doc, com.devforge.document.domain.DocumentContent.hash("hash me")))
-                .as("SHA-256 hex, agreeing with encode(sha256(...), 'hex')")
+                .as("SHA-256 hex, agreeing with the migration's expression")
                 .isTrue();
+    }
+
+    /**
+     * The migration's hashing expression, run against content that actually breaks
+     * the naive version.
+     *
+     * <p>This is a regression test for a real defect. The backfill first used
+     * {@code content::bytea}, which routes text through {@code bytea_in} and
+     * <em>interprets</em> backslash escapes. On a body containing a literal
+     * backslash that either fails the migration outright — which is what happened,
+     * on the first deployment carrying real documentation — or hashes different
+     * bytes than Java does and silently stores a duplicate of content that already
+     * existed.
+     *
+     * <p>The backfill itself cannot be exercised by a test, because it only touches
+     * rows that predate the migration and the schema is built before any test data
+     * exists. So the expression is asserted directly instead.
+     */
+    @Test
+    @Transactional
+    void theMigrationsHashExpressionAgreesWithJavaOnAwkwardContent() {
+        String[] awkward = {
+                "plain",
+                "a backslash \\ here",
+                "escape-looking \\n sequence",
+                "windows\\path\\to\\file",
+                "hex-looking \\x41 sequence",
+                "unicode \u00e9\u00e8 and an emoji \ud83d\udd27",
+                "",
+        };
+
+        for (String content : awkward) {
+            String fromSql = (String) entityManager
+                    .createNativeQuery(
+                            "SELECT encode(sha256(convert_to(CAST(:body AS text), 'UTF8')), 'hex')")
+                    .setParameter("body", content)
+                    .getSingleResult();
+
+            assertThat(fromSql)
+                    .as("migration and application must agree on %s", describe(content))
+                    .isEqualTo(com.devforge.document.domain.DocumentContent.hash(content));
+        }
+    }
+
+    private static String describe(String content) {
+        return content.isEmpty() ? "empty content" : "\"" + content + "\"";
     }
 
     /**
