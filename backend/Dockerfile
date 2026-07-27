@@ -26,6 +26,13 @@ RUN addgroup -S devforge && adduser -S devforge -G devforge
 # will attribute to git rather than to the mount.
 RUN mkdir -p /var/lib/devforge/git && chown -R devforge:devforge /var/lib/devforge
 
+# Set here rather than left to the caller. The development default is under
+# ./target, which is right for `mvnw spring-boot:run` and quietly wrong in an
+# image — repositories would land in a build directory inside the container and
+# be destroyed by the next rebuild. An image that cannot be wrong about this is
+# worth more than a line in the compose file that can be forgotten.
+ENV DEVFORGE_GIT_ROOT=/var/lib/devforge/git
+
 USER devforge
 
 COPY --from=build /build/target/*.jar app.jar

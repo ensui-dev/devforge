@@ -44,6 +44,15 @@ services:
         condition: service_healthy
     ports:
       - "8080:8080"
+    volumes:
+      # Hosted git repositories. A named volume rather than nothing: without it
+      # they would live in the container's own filesystem and be destroyed by the
+      # next `docker compose up --build`, which is not a way to lose a repository
+      # anyone would expect from a compose file.
+      #
+      # Unlike everything else here, this is not in the database — `pg_dump` does
+      # not capture it, so a backup has to cover both.
+      - devforge_git:/var/lib/devforge/git
 
   frontend:
     profiles: ["full"]
@@ -58,3 +67,4 @@ services:
 
 volumes:
   devforge_pg_data:
+  devforge_git:

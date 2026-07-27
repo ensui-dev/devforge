@@ -160,14 +160,17 @@ export function WorkspaceSettingsPage() {
 
       <PublicationPanel workspace={workspace} />
 
-      {/* The workspace as a remote, before the panel that follows someone else's
-          repository: cloning this one is the simpler of the two and needs no setup. */}
+      {/* Shown to everyone who can see the workspace, unlike the panel below it.
+          Cloning needs only the viewer role, so a member who cannot configure
+          anything still needs the address — hiding it would hide the feature from
+          most of the people who use it. */}
       <GitRemotePanel workspaceId={workspace.id} />
 
-      {/* Admin-only, like the rest of this screen: it decides where the workspace's
-          documentation comes from, and the wrong repository could withdraw every
-          page. The server enforces the same bar. */}
-      <GitSyncPanel workspaceId={workspace.id} />
+      {/* Admin-only, and gated here rather than left to fail: it decides where the
+          workspace's documentation comes from, and the wrong repository could
+          withdraw every page. The server refuses to describe it to anyone else, so
+          rendering it for a member would only show them an error. */}
+      {canEdit ? <GitSyncPanel workspaceId={workspace.id} /> : null}
 
       {canDelete ? (
         <section className="danger-zone">

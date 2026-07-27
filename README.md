@@ -523,7 +523,15 @@ packfiles, written by a protocol that expects a filesystem.
 
 ```bash
 pg_dump -U devforge devforge > devforge.sql   # everything except repositories
-tar czf devforge-git.tgz /opt/docker/appdata/devforge/git
+tar czf devforge-git.tgz "$DEVFORGE_GIT_ROOT"
+```
+
+The compose file in this repository keeps them in a named volume, which `tar` on
+the host cannot see:
+
+```bash
+docker run --rm -v devforge_git:/data -v "$PWD:/out" alpine \
+    tar czf /out/devforge-git.tgz -C /data .
 ```
 
 A repository can be reconstructed by pushing again, so losing one is recoverable

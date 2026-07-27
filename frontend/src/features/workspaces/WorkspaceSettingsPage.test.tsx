@@ -1,10 +1,10 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import * as endpoints from '../../shared/api/endpoints'
 import { ApiError } from '../../shared/api/client'
-import type { Workspace, WorkspaceRole } from '../../shared/types'
+import type { SyncSettings, Workspace, WorkspaceRole } from '../../shared/types'
 import { WorkspaceContext } from './WorkspaceContext'
 import { WorkspaceSettingsPage } from './WorkspaceSettingsPage'
 
@@ -20,6 +20,30 @@ function workspace(callerRole: WorkspaceRole = 'OWNER'): Workspace {
   }
 }
 
+const unconfiguredSync: SyncSettings = {
+  configured: false,
+  repositoryUrl: '',
+  branch: 'main',
+  documentPath: '',
+  defaultType: 'GENERAL',
+  deletionPolicy: 'ARCHIVE',
+  enabled: false,
+  hasAccessToken: false,
+  hasWebhookSecret: false,
+  webhookUrl: null,
+  webhookId: null,
+  lastAttemptedAt: null,
+  lastSucceededAt: null,
+  lastRef: null,
+  lastStatus: null,
+  lastMessage: null,
+  lastCreated: 0,
+  lastUpdated: 0,
+  lastArchived: 0,
+  lastUnchanged: 0,
+  problems: [],
+}
+
 function renderPage(callerRole: WorkspaceRole = 'OWNER') {
   return renderWithProviders(
     <WorkspaceContext.Provider value={workspace(callerRole)}>
@@ -27,6 +51,21 @@ function renderPage(callerRole: WorkspaceRole = 'OWNER') {
     </WorkspaceContext.Provider>,
   )
 }
+
+/**
+ * The two git panels fetch on mount. Stubbed rather than left to fail, so this
+ * file tests the settings form against a working page instead of against three
+ * error states that happen not to be in the way.
+ */
+beforeEach(() => {
+  vi.spyOn(endpoints.syncApi, 'repository').mockResolvedValue({
+    enabled: false,
+    exists: false,
+    clonePath: null,
+    sizeBytes: null,
+  })
+  vi.spyOn(endpoints.syncApi, 'get').mockResolvedValue(unconfiguredSync)
+})
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -102,6 +141,50 @@ describe('WorkspaceSettingsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'platform-team' }))
 
     expect(screen.getByLabelText('URL slug')).toHaveValue('platform-team')
+  })
+
+  /**
+   * The two panels have different bars, so showing them together would be wrong
+   * for one of them. Cloning needs viewer; deciding where documentation comes
+   * from needs admin, and the server refuses to describe it to anyone else.
+   */
+  describe('git panels', () => {
+    it('offers the remote to a member who cannot configure anything', async () => {
+      vi.spyOn(endpoints.syncApi, 'repository').mockResolvedValue({
+        enabled: true,
+        exists: true,
+        clonePath: '/git/ada/platform.git',
+        sizeBytes: 1024,
+      })
+
+      renderPage('MEMBER')
+
+      expect(await screen.findByLabelText('Remote URL')).toBeInTheDocument()
+    })
+
+    it('hides the sync settings from a member rather than showing them an error', async () => {
+      vi.spyOn(endpoints.syncApi, 'repository').mockResolvedValue({
+        enabled: true,
+        exists: true,
+        clonePath: '/git/ada/platform.git',
+        sizeBytes: 1024,
+      })
+
+      renderPage('MEMBER')
+
+      // Waiting on the other panel first is what makes the absence mean
+      // something: asserting straight away would pass while the sync panel was
+      // merely still loading, which it does whether or not it is allowed to.
+      expect(await screen.findByLabelText('Remote URL')).toBeInTheDocument()
+      expect(screen.queryByText('Sync from git')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Repository URL')).not.toBeInTheDocument()
+    })
+
+    it('shows the sync settings to an admin', async () => {
+      renderPage('ADMIN')
+
+      expect(await screen.findByText('Sync from git')).toBeInTheDocument()
+    })
   })
 
   describe('deletion', () => {
