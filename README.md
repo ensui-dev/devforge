@@ -260,9 +260,14 @@ internals, or if layering within a module is violated.
 - **Ordering as a pure function.** `TaskOrdering` does the position arithmetic with
   no persistence or Spring involved, so every reorder, cross-column move, and
   delete-compaction case is exhaustively unit tested.
-- **Search maintained by the database.** `documents.search_vector` is a generated
-  `tsvector` column with a GIN index, so results can never drift from content, and
-  cost scales with the number of matches rather than the number of documents.
+- **Search maintained by the database.** `documents.search_vector` and
+  `search_simple` are generated `tsvector` columns with GIN indexes, so results can
+  never drift from content and cost scales with the number of matches rather than
+  the number of documents. Four ways to match, ranked by confidence: a stemmed
+  whole word, so "authenticate" finds "authentication"; an unstemmed prefix, so a
+  word finds its page before it is finished; a substring of a title, which is the
+  only one that can find a fragment inside a word; and trigram similarity, which
+  is what survives a typo.
 - **Bounded query counts.** A whole board — columns, tasks, assignees, and cited
   documents across three modules — is assembled in four queries by
   `BoardAssembler`, regardless of size.
@@ -532,6 +537,14 @@ endpoint deliberately omits operational settings such as the public address.
 
 Flyway migrations run at startup, so an upgrade is a redeploy. The instance
 settings row survives it, along with everything else in the database.
+
+**One requirement worth knowing about**: search installs the `pg_trgm` extension,
+which is what makes it survive a typo. From PostgreSQL 13 onwards that is a
+*trusted* extension, so the account owning the database can install it without
+superuser rights — which is the case for the compose file here and for any
+ordinary self-hosted Postgres. On a managed database that both withholds
+superuser and does not offer `pg_trgm`, the migration fails and the application
+will not start; enable the extension for the database first.
 
 **There are two things to back up**, and it used to be one. Everything DevForge
 stores lives in PostgreSQL — including uploaded logos, deliberately, so that a dump
