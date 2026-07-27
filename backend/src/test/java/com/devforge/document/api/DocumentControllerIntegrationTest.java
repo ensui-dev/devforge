@@ -143,6 +143,106 @@ class DocumentControllerIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk());
     }
 
+    /**
+     * The complaint this changed: search only worked once a word was finished.
+     * Full-text matching is by whole stemmed lexeme, so "authenti" and the
+     * document's "authent" are simply different words.
+     */
+    @Test
+    void findsAPageBeforeTheWordIsFinished() throws Exception {
+        TestUser user = registerUser();
+        UUID workspaceId = createWorkspace(user, "Platform", "platform");
+        createDocument(user, workspaceId, "Authentication", "authentication",
+                "How sessions are established.", "ARCHITECTURE");
+
+        mockMvc.perform(authed(get("/api/workspaces/{id}/documents/search", workspaceId), user)
+                        .param("q", "authenti"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].slug").value("authentication"));
+    }
+
+    @Test
+    void matchesAPrefixInTheBodyAsWellAsTheTitle() throws Exception {
+        TestUser user = registerUser();
+        UUID workspaceId = createWorkspace(user, "Platform", "platform");
+        createDocument(user, workspaceId, "Notes", "notes",
+                "The deployment pipeline runs nightly.", "GENERAL");
+
+        mockMvc.perform(authed(get("/api/workspaces/{id}/documents/search", workspaceId), user)
+                        .param("q", "deploym"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    /**
+     * No amount of stemming makes "lag" a token of "consumer-lag", so this is the
+     * one of the three ways to match that full-text search cannot do.
+     */
+    @Test
+    void findsAFragmentInsideAWordOfTheTitle() throws Exception {
+        TestUser user = registerUser();
+        UUID workspaceId = createWorkspace(user, "Platform", "platform");
+        createDocument(user, workspaceId, "consumer-lag-runbook", "consumer-lag-runbook",
+                "body", "RUNBOOK");
+
+        mockMvc.perform(authed(get("/api/workspaces/{id}/documents/search", workspaceId), user)
+                        .param("q", "lag"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    /** A search box is where misspellings arrive. */
+    @Test
+    void survivesATypo() throws Exception {
+        TestUser user = registerUser();
+        UUID workspaceId = createWorkspace(user, "Platform", "platform");
+        createDocument(user, workspaceId, "Authentication", "authentication", "body", "ARCHITECTURE");
+
+        mockMvc.perform(authed(get("/api/workspaces/{id}/documents/search", workspaceId), user)
+                        .param("q", "authentcation"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    /** Two words narrow the search rather than widening it. */
+    @Test
+    void requiresEveryTermToMatch() throws Exception {
+        TestUser user = registerUser();
+        UUID workspaceId = createWorkspace(user, "Platform", "platform");
+        createDocument(user, workspaceId, "Consumer lag", "consumer-lag",
+                "Diagnosing a slow consumer.", "RUNBOOK");
+        createDocument(user, workspaceId, "Deployment", "deployment",
+                "Rolling out a consumer.", "PROCEDURE");
+
+        mockMvc.perform(authed(get("/api/workspaces/{id}/documents/search", workspaceId), user)
+                        .param("q", "consumer lag"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].slug").value("consumer-lag"));
+    }
+
+    /** Confidence order: a full-text hit beats something that merely looks alike. */
+    @Test
+    void ranksAConfidentMatchAboveASimilarOne() throws Exception {
+        TestUser user = registerUser();
+        UUID workspaceId = createWorkspace(user, "Platform", "platform");
+        createDocument(user, workspaceId, "Deployment", "deployment", "body", "PROCEDURE");
+        createDocument(user, workspaceId, "Deploymnet notes", "deploymnet-notes", "body", "GENERAL");
+
+        mockMvc.perform(authed(get("/api/workspaces/{id}/documents/search", workspaceId), user)
+                        .param("q", "deployment"))
+                .andExpect(jsonPath("$.content[0].slug").value("deployment"));
+    }
+
+    @Test
+    void answersEmptyForASearchWithNoWordsInIt() throws Exception {
+        TestUser user = registerUser();
+        UUID workspaceId = createWorkspace(user, "Platform", "platform");
+        createDocument(user, workspaceId, "Notes", "notes", "body", "GENERAL");
+
+        mockMvc.perform(authed(get("/api/workspaces/{id}/documents/search", workspaceId), user)
+                        .param("q", "!!! ???"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
     @Test
     void fetchesBySlugForDeepLinks() throws Exception {
         TestUser user = registerUser();

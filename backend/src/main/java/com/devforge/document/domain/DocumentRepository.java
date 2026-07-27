@@ -64,13 +64,27 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
     int countByWorkspaceIdAndInternalTrue(UUID workspaceId);
 
     /**
-     * Ranked full-text search over title and body.
+     * Ranked search over title and body.
      *
-     * <p>Uses the stored {@code search_vector} column and its GIN index, so cost
-     * grows with the number of <em>matches</em> rather than the number of
-     * documents. {@code websearch_to_tsquery} accepts what users actually type
-     * ({@code "quoted phrase" -excluded or alternative}) without throwing on
-     * malformed input, which a raw {@code to_tsquery} would.
+     * <p>Four ways to match, because one is not enough for a search box.
+     *
+     * <ul>
+     *   <li>The stemmed {@code search_vector}, which is what lets "authenticate"
+     *       find "authentication".</li>
+     *   <li>The unstemmed {@code search_simple}, matched as a prefix, so a word
+     *       finds its page before it has finished being typed. Prefix matching
+     *       against the stemmed vector would not do it: "deployment" is stored as
+     *       {@code deploy}, which does not start with {@code deploym}.</li>
+     *   <li>A substring match on the title, which is the only one of the three that
+     *       can find a fragment inside a word — full text is word-based, so "lag"
+     *       will not match "consumer-lag" as a token however it is stemmed.</li>
+     *   <li>Trigram similarity on the title, which is what tolerates a typo:
+     *       "authentcation" still finds the authentication page.</li>
+     * </ul>
+     *
+     * <p>Ranked in that order of confidence. A full-text hit outranks a substring
+     * hit, which outranks something that merely looks similar, and titles beat
+     * bodies because the vector weights them so.
      *
      * <p>Columns are listed explicitly rather than {@code SELECT *} so the
      * unmapped {@code tsvector} column is never returned.
@@ -85,21 +99,32 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
                            d.internal, d.created_at, d.updated_at, d.version
                     FROM documents d
                     WHERE d.workspace_id = :workspaceId
-                      AND d.search_vector @@ websearch_to_tsquery('english', :query)
-                    ORDER BY ts_rank(d.search_vector, websearch_to_tsquery('english', :query)) DESC,
+                      AND (d.search_vector @@ to_tsquery('english', :tsQuery)
+                           OR d.search_simple @@ to_tsquery('simple', :tsQuery)
+                           OR d.title ILIKE :likePattern
+                           OR similarity(d.title, :typed) > 0.25)
+                    ORDER BY ts_rank(d.search_vector, to_tsquery('english', :tsQuery)) DESC,
+                             ts_rank(d.search_simple, to_tsquery('simple', :tsQuery)) DESC,
+                             (d.title ILIKE :likePattern) DESC,
+                             similarity(d.title, :typed) DESC,
                              d.title ASC
                     """,
             countQuery = """
                     SELECT count(*)
                     FROM documents d
                     WHERE d.workspace_id = :workspaceId
-                      AND d.search_vector @@ websearch_to_tsquery('english', :query)
+                      AND (d.search_vector @@ to_tsquery('english', :tsQuery)
+                           OR d.search_simple @@ to_tsquery('simple', :tsQuery)
+                           OR d.title ILIKE :likePattern
+                           OR similarity(d.title, :typed) > 0.25)
                     """,
             nativeQuery = true
     )
     Page<Document> search(
             @Param("workspaceId") UUID workspaceId,
-            @Param("query") String query,
+            @Param("tsQuery") String tsQuery,
+            @Param("likePattern") String likePattern,
+            @Param("typed") String typed,
             Pageable pageable
     );
 }

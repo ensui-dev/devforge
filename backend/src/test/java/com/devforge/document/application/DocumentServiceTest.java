@@ -145,11 +145,26 @@ class DocumentServiceTest {
     @Test
     void searchesThroughTheRepository() {
         givenAccess(WorkspaceRole.VIEWER);
-        when(documentRepository.search(eq(workspaceId), eq("auth"), any(Pageable.class)))
+        when(documentRepository.search(
+                eq(workspaceId), eq("auth:*"), eq("%auth%"), eq("auth"), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(document)));
 
         assertThat(documentService.search(workspaceId, userId, "auth", PageRequest.of(0, 25)).content())
                 .hasSize(1);
+    }
+
+    /**
+     * An empty tsquery is a PostgreSQL syntax error, so a query with no words left
+     * in it after stripping punctuation must not reach the database at all.
+     */
+    @Test
+    void answersNothingForASearchWithNoWordsInIt() {
+        givenAccess(WorkspaceRole.VIEWER);
+
+        assertThat(documentService.search(workspaceId, userId, "!!! ???", PageRequest.of(0, 25))
+                .content()).isEmpty();
+        verify(documentRepository, never())
+                .search(any(), any(), any(), any(), any(Pageable.class));
     }
 
     @Test

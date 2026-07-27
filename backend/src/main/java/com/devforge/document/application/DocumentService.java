@@ -8,6 +8,7 @@ import com.devforge.document.contract.AuthoringOrigin;
 import com.devforge.document.contract.DocumentType;
 import com.devforge.document.domain.Document;
 import com.devforge.document.domain.DocumentRepository;
+import com.devforge.document.domain.SearchQuery;
 import com.devforge.document.domain.RevisionReason;
 import com.devforge.shared.application.PageResponse;
 import com.devforge.shared.exception.DuplicateResourceException;
@@ -77,8 +78,17 @@ public class DocumentService {
             Pageable pageable
     ) {
         workspaceAccess.requireAccess(workspaceId, userId, WorkspaceRole.VIEWER);
+
+        String tsQuery = SearchQuery.toTsQuery(query);
+        if (tsQuery == null) {
+            // Punctuation alone is not a search. Answering with nothing beats
+            // handing PostgreSQL an empty tsquery, which is a syntax error.
+            return PageResponse.of(Page.empty(pageable), DocumentSummaryResponse::from);
+        }
+
         return PageResponse.of(
-                documentRepository.search(workspaceId, query, pageable),
+                documentRepository.search(
+                        workspaceId, tsQuery, SearchQuery.toLikePattern(query), query.strip(), pageable),
                 DocumentSummaryResponse::from);
     }
 
