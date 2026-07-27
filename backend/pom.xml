@@ -16,6 +16,7 @@
 
 	<properties>
 		<java.version>21</java.version>
+		<jgit.version>7.1.0.202411261347-r</jgit.version>
 		<springdoc.version>3.0.0</springdoc.version>
 		<archunit.version>1.4.0</archunit.version>
 	</properties>
@@ -57,6 +58,23 @@
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
 			<version>${springdoc.version}</version>
+		</dependency>
+
+		<!--
+			Git over HTTP. JGit implements the smart-HTTP protocol, so DevForge can
+			serve `git push` and `git clone` without shelling out to a git binary or
+			writing wire-protocol code. EDL-licensed (BSD-style), so compatible with
+			this project's MIT licence.
+		-->
+		<dependency>
+			<groupId>org.eclipse.jgit</groupId>
+			<artifactId>org.eclipse.jgit</artifactId>
+			<version>${jgit.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.eclipse.jgit</groupId>
+			<artifactId>org.eclipse.jgit.http.server</artifactId>
+			<version>${jgit.version}</version>
 		</dependency>
 
 		<dependency>

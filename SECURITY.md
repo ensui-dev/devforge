@@ -75,6 +75,17 @@ over live third-party credentials. This is defence in depth, not a vault: an att
 with the running host has the key. Rotating the signing secret makes stored
 credentials unreadable, which surfaces as "reconnect the repository".
 
+### Hosted repositories are on disk, not in the database
+
+DevForge can host a git repository per workspace, and those live on the filesystem
+under `DEVFORGE_GIT_ROOT`. Two consequences worth knowing:
+
+- **A database dump is no longer a complete backup.** Back up that directory too.
+- **Anything ever pushed stays reachable.** Git keeps objects that no branch points
+  at, so force-pushing over a commit does not destroy it. A credential committed by
+  mistake must be treated as leaked and rotated, exactly as on any other git host —
+  removing it in a later commit is not enough.
+
 ## Design decisions relevant to security
 
 - **Tokens are HMAC-signed JWTs** with a 12-hour life and no refresh or

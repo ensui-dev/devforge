@@ -1877,7 +1877,7 @@ server. You can run your own, and nothing is withheld from it.
 | **Licence** | MIT — use it commercially, fork it, relicense your changes |
 | **No paid tier** | Nothing is gated behind a licence key or an edition |
 | **No telemetry** | No analytics, no phone-home, no CDN. The application makes no outbound request of any kind |
-| **Your data** | One PostgreSQL database you control; `pg_dump` is a complete backup |
+| **Your data** | One PostgreSQL database you control, plus the git repositories DevForge hosts |
 
 The no-telemetry claim is checkable, which is the point of shipping the source:
 the frontend loads no external asset and declares no analytics dependency, and the
@@ -1973,8 +1973,19 @@ nothing else. See **First-run setup** for what the four steps decide.
 ## Upgrading
 
 Migrations run at startup, so an upgrade is a redeploy. The instance settings row
-survives it. Back up with `pg_dump` — a logo image is stored in that row rather
-than in object storage, so a database dump is a complete backup.
+survives it.
+
+Back up **two** things. Everything DevForge stores lives in PostgreSQL — including
+uploaded logos, deliberately — except the git repositories it hosts, which are
+packfiles on disk:
+
+```bash
+pg_dump -U devforge devforge > devforge.sql
+tar czf devforge-git.tgz /opt/docker/appdata/devforge/git
+```
+
+A repository can be reconstructed by pushing again, so losing one is recoverable
+where losing the database is not — as long as somebody still has a clone.
 """,
     },
     {

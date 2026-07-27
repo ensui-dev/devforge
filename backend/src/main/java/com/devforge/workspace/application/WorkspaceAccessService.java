@@ -43,6 +43,32 @@ public class WorkspaceAccessService implements WorkspaceAccess, WorkspaceLookup 
     }
 
     @Override
+    public java.util.Optional<WorkspaceRef> findForCaller(
+            String ownerHandle,
+            String slug,
+            UUID userId,
+            WorkspaceRole minimumRole
+    ) {
+        if (ownerHandle == null || slug == null || userId == null) {
+            return java.util.Optional.empty();
+        }
+
+        // Resolving and authorising in one step. Every failure — no such owner, no
+        // such workspace, not a member, role too low — yields the same empty answer,
+        // so a git URL cannot be probed to discover what exists.
+        return userDirectory.findByHandle(ownerHandle)
+                .flatMap(owner -> workspaceRepository.findByOwnerUserIdAndSlug(owner.id(), slug))
+                .flatMap(workspace -> {
+                    try {
+                        return java.util.Optional.of(
+                                requireAccess(workspace.getId(), userId, minimumRole));
+                    } catch (RuntimeException denied) {
+                        return java.util.Optional.empty();
+                    }
+                });
+    }
+
+    @Override
     public WorkspaceRef requireAccess(UUID workspaceId, UUID userId, WorkspaceRole minimumRole) {
         WorkspaceMember membership = memberRepository.findByWorkspaceIdAndUserId(workspaceId, userId)
                 // Non-members get 404 rather than 403: a 403 would confirm the

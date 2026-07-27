@@ -489,9 +489,20 @@ endpoint deliberately omits operational settings such as the public address.
 ### Upgrading
 
 Flyway migrations run at startup, so an upgrade is a redeploy. The instance
-settings row survives it, along with everything else in the database. Back up
-with `pg_dump`; a logo image lives in that row rather than in object storage, so
-a database dump is a complete backup.
+settings row survives it, along with everything else in the database.
+
+**There are two things to back up**, and it used to be one. Everything DevForge
+stores lives in PostgreSQL — including uploaded logos, deliberately, so that a dump
+captures an instance whole. Hosted git repositories are the exception: they are
+packfiles, written by a protocol that expects a filesystem.
+
+```bash
+pg_dump -U devforge devforge > devforge.sql   # everything except repositories
+tar czf devforge-git.tgz /opt/docker/appdata/devforge/git
+```
+
+A repository can be reconstructed by pushing again, so losing one is recoverable
+where losing the database is not — but only if someone still has a clone.
 
 ## Configuration
 
@@ -529,6 +540,8 @@ in again.
 | `DEVFORGE_JWT_SECRET` | a development placeholder | **Must be replaced in any deployment.** Validated at startup; the application refuses to boot on a secret shorter than 32 characters. |
 | `DEVFORGE_CORS_ORIGINS` | empty | Comma-separated. Only needed if the client is served from another origin; CORS is off when empty. |
 | `DEVFORGE_DB_PORT` | `5432` | Host port for the compose database. |
+| `DEVFORGE_GIT_ROOT` | `/var/lib/devforge/git` | Where hosted git repositories live. Back this up alongside `pg_dump`. |
+| `DEVFORGE_GIT_ENABLED` | `true` | Serve git over HTTP. Switch off on an instance that only syncs from an external remote. |
 | `PORT` | `8080` | |
 
 ## Not built yet

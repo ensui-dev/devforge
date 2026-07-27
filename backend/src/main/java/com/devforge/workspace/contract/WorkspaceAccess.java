@@ -29,4 +29,26 @@ public interface WorkspaceAccess {
      *         is a member but holds a role below {@code minimumRole}
      */
     WorkspaceRef requireAccess(UUID workspaceId, UUID userId, WorkspaceRole minimumRole);
+
+    /**
+     * Resolves a workspace by the address a git remote uses, and authorises it in
+     * the same step.
+     *
+     * <p>Deliberately not two calls. Looking up first and checking afterwards would
+     * hand back the identity of a workspace the caller may not see, and the whole
+     * point of {@code requireAccess} is that resolving <em>is</em> the check.
+     *
+     * <p>{@link WorkspaceLookup} cannot serve this: it only ever returns published
+     * workspaces, by design, and a private workspace is exactly the case a git
+     * remote needs.
+     *
+     * @return empty when no such workspace exists, when the caller is not a member,
+     *         or when their role is below {@code minimumRole} — indistinguishable,
+     *         so a git URL cannot be used to discover which workspaces exist
+     */
+    java.util.Optional<WorkspaceRef> findForCaller(
+            String ownerHandle,
+            String slug,
+            UUID userId,
+            WorkspaceRole minimumRole);
 }

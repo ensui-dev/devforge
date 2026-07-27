@@ -49,6 +49,10 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // Git speaks HTTP Basic and has no session, so it cannot go
+                        // through the bearer resource server. GitAuthenticationFilter
+                        // authenticates these and rejects anything it cannot.
+                        .requestMatchers("/git/**").permitAll()
                         .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
                         // First-run setup. The endpoint itself refuses once the
                         // instance is configured, so leaving it open is safe.
