@@ -53,6 +53,10 @@ public class SecurityConfig {
                         // First-run setup. The endpoint itself refuses once the
                         // instance is configured, so leaving it open is safe.
                         .requestMatchers(HttpMethod.POST, "/api/setup").permitAll()
+                        // Webhook deliveries from a git host, which has no session.
+                        // The endpoint verifies an HMAC signature over the raw body
+                        // and answers 404 to anything it cannot verify.
+                        .requestMatchers(HttpMethod.POST, "/api/public/sync/*").permitAll()
                         // The product's own documentation, read-only and limited to
                         // the single configured handbook workspace.
                         .requestMatchers(HttpMethod.GET, "/api/public/**").permitAll()

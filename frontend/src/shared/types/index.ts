@@ -462,3 +462,54 @@ export interface AuditEvent {
   /** Shape varies by action: changed fields, roles, counts. */
   detail: Record<string, AuditChange | string | number | boolean>
 }
+
+/* Documentation synced from a git repository. */
+
+export type DeletionPolicy = 'ARCHIVE' | 'DELETE' | 'IGNORE'
+export type SyncStatus = 'OK' | 'PARTIAL' | 'FAILED'
+
+export interface SyncSettings {
+  configured: boolean
+  repositoryUrl: string
+  branch: string
+  /** Subdirectory holding the markdown; '' means the repository root. */
+  documentPath: string
+  defaultType: DocumentType
+  deletionPolicy: DeletionPolicy
+  enabled: boolean
+  /**
+   * Whether a credential is stored. The values themselves are never returned —
+   * echoing a repository token would put it in every cache and log that touched
+   * the page, which would defeat encrypting it at rest.
+   */
+  hasAccessToken: boolean
+  hasWebhookSecret: boolean
+  webhookUrl: string | null
+  webhookId: string | null
+  lastAttemptedAt: string | null
+  lastSucceededAt: string | null
+  lastRef: string | null
+  lastStatus: SyncStatus | null
+  lastMessage: string | null
+  lastCreated: number
+  lastUpdated: number
+  lastArchived: number
+  lastUnchanged: number
+  /** Files the last run could not use, when it was only partly applied. */
+  problems: string[]
+}
+
+export interface SyncSettingsPayload {
+  repositoryUrl: string
+  branch: string
+  documentPath: string
+  defaultType: DocumentType
+  deletionPolicy: DeletionPolicy
+  enabled: boolean
+  /**
+   * Omit to leave the stored credential alone; send '' to clear it. A form cannot
+   * echo a secret back, so absence is the only way to mean "unchanged".
+   */
+  accessToken?: string
+  webhookSecret?: string
+}

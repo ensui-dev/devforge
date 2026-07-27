@@ -9,6 +9,7 @@ import { Modal } from '../../shared/components/Modal'
 import { useToast } from '../../shared/components/useToast'
 import { roleAtLeast } from '../../shared/types'
 import { slugify } from '../../shared/utils/slugify'
+import { GitSyncPanel } from '../sync/GitSyncPanel'
 import { PublicationPanel } from './PublicationPanel'
 import { useCurrentWorkspace } from './WorkspaceContext'
 import { useDeleteWorkspace, useUpdateWorkspace } from './useWorkspaces'
@@ -157,6 +158,11 @@ export function WorkspaceSettingsPage() {
       </form>
 
       <PublicationPanel workspace={workspace} />
+
+      {/* Admin-only, like the rest of this screen: it decides where the workspace's
+          documentation comes from, and the wrong repository could withdraw every
+          page. The server enforces the same bar. */}
+      <GitSyncPanel workspaceId={workspace.id} />
 
       {canDelete ? (
         <section className="danger-zone">

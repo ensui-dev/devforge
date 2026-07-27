@@ -359,6 +359,24 @@ Columns may carry a work-in-progress limit, checked when a task arrives.
 | `GET` | `/api/instance/admins` | List this instance's operators (instance admin) |
 | `PUT` | `/api/instance/users/{id}/admin` | Grant or revoke instance administration (instance admin) |
 
+### Git sync
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/workspaces/{id}/sync` | How this workspace syncs (workspace admin) |
+| `PUT` | `/api/workspaces/{id}/sync` | Point it at a repository (workspace admin) |
+| `POST` | `/api/workspaces/{id}/sync/run` | Sync now and report what happened |
+| `POST` | `/api/workspaces/{id}/sync/secret` | Generate a webhook secret, returned once |
+| `POST` | `/api/workspaces/{id}/sync/rotate-url` | Mint a new webhook URL |
+| `DELETE` | `/api/workspaces/{id}/sync` | Disconnect and forget the credentials |
+| `POST` | `/api/public/sync/{webhookId}` | Webhook endpoint; verified by HMAC signature |
+
+The webhook is unauthenticated because a git host has no session. An HMAC-SHA256
+signature over the raw request body is what authorises it, accepted as either
+GitHub's `X-Hub-Signature-256` or Forgejo/Gitea's bare-hex header. Anything that does
+not verify gets a 404 — distinguishing "no such webhook" from "wrong secret" would
+confirm that a workspace syncs.
+
 ## Testing
 
 ### Backend
@@ -529,11 +547,14 @@ Deliberate omissions, in rough priority order:
   document body is stored once per distinct content, so a restore or a reverted edit
   adds none — but nothing prunes them. Deleting a document removes its revisions;
   its audit entries are kept deliberately.
-- **Docs-as-code.** Authoring documentation in a git repository and pushing it to
-  DevForge, rather than typing into the web form. Sketched in
-  [issue #1](https://github.com/ensui-dev/devforge/issues/1) — the revision store is
-  already the right shape for it, but the conflict and identity questions are not
-  settled.
+- **Authoring the reference graph in git.** Documents sync from a repository, but
+  typed links between them still have to be made in the interface. Reading a
+  `references:` key from front matter needs a two-pass import to resolve forward
+  references, and is not built.
+- **Pushing back to git.** Sync is one-way: edits made in DevForge do not become
+  commits.
+- **Importing git history.** A sync applies the state of a ref rather than replaying
+  commits into revisions.
 - **Password reset.** An operator can create accounts and hand out a temporary
   password, but nobody can reset their own.
 - **SMTP.** Nothing sends email, so registration is not verified and there are no

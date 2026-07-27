@@ -53,6 +53,28 @@ Documents marked internal are filtered in SQL, not in the client. An operator ca
 switch public documentation off instance-wide, which takes every published site
 offline at once.
 
+### Understand what a git sync trusts
+
+Pointing a workspace at a repository means anyone who can push to that repository can
+change that workspace's documentation. Sync is configured by a workspace `ADMIN`, and
+from then on the repository is the source of truth for the pages it contains.
+
+The webhook endpoint is unauthenticated, because a git host has no DevForge session.
+An HMAC-SHA256 signature over the raw request body is the whole boundary:
+
+- Until a webhook secret exists, every delivery is refused. An endpoint that accepted
+  unsigned deliveries would be an unauthenticated way to make the server fetch a URL.
+- Signatures are compared in constant time. A short-circuiting comparison would leak
+  how much of a guessed signature was right, one byte at a time.
+- Anything that does not verify gets a 404, including a valid webhook id with a wrong
+  secret — distinguishing the two would confirm to a stranger that a workspace syncs.
+
+Repository access tokens and webhook secrets are encrypted with AES-GCM under a key
+derived from `DEVFORGE_JWT_SECRET`, so a leaked database dump or backup does not hand
+over live third-party credentials. This is defence in depth, not a vault: an attacker
+with the running host has the key. Rotating the signing secret makes stored
+credentials unreadable, which surfaces as "reconnect the repository".
+
 ## Design decisions relevant to security
 
 - **Tokens are HMAC-signed JWTs** with a 12-hour life and no refresh or
@@ -80,5 +102,4 @@ should know before exposing an instance publicly:
   instance use `RESTRICTED` or `CLOSED` registration if that matters.
 - **No password reset.** An administrator can create accounts and issue a
   temporary password; nobody can reset their own.
-- **No audit log.** Changes are not attributed beyond the `updated_at` and
-  version columns.
+

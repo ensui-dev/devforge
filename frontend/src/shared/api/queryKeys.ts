@@ -69,6 +69,10 @@ export const queryKeys = {
       ['instance', 'activity', action, page, size] as const,
   },
 
+  sync: {
+    settings: (workspaceId: string) => ['workspaces', workspaceId, 'sync'] as const,
+  },
+
   boards: {
     all: (workspaceId: string) => ['workspaces', workspaceId, 'boards'] as const,
     detail: (workspaceId: string, boardId: string) =>

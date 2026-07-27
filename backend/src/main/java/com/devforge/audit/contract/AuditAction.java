@@ -14,6 +14,10 @@ public enum AuditAction {
     WORKSPACE_DELETED,
     WORKSPACE_PUBLISHED,
     WORKSPACE_UNPUBLISHED,
+    /** Documentation applied from a git repository. */
+    WORKSPACE_SYNCED,
+    /** A sync was configured, reconfigured, or disconnected. */
+    SYNC_CONFIGURED,
 
     MEMBER_ADDED,
     MEMBER_ROLE_CHANGED,

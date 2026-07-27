@@ -29,6 +29,8 @@ import type {
   ReferenceType,
   RegisterPayload,
   SetupPayload,
+  SyncSettings,
+  SyncSettingsPayload,
   SetupResult,
   Task,
   UpdateTaskPayload,
@@ -287,4 +289,29 @@ export const instanceApi = {
       method: 'PUT',
       ...json({ instanceAdmin }),
     }),
+}
+
+/**
+ * A workspace's git connection. Admin-only, because the response says whether
+ * credentials are stored and exposes the webhook URL.
+ */
+export const syncApi = {
+  get: (workspaceId: string) => apiRequest<SyncSettings>(`/api/workspaces/${workspaceId}/sync`),
+  save: (workspaceId: string, payload: SyncSettingsPayload) =>
+    apiRequest<SyncSettings>(`/api/workspaces/${workspaceId}/sync`, {
+      method: 'PUT',
+      ...json(payload),
+    }),
+  /** Runs a sync immediately, so settings can be checked without pushing. */
+  run: (workspaceId: string) =>
+    apiRequest<SyncSettings>(`/api/workspaces/${workspaceId}/sync/run`, { method: 'POST' }),
+  /** Returns the new secret in the clear, once. It is stored encrypted. */
+  generateSecret: (workspaceId: string) =>
+    apiRequest<{ webhookSecret: string }>(`/api/workspaces/${workspaceId}/sync/secret`, {
+      method: 'POST',
+    }),
+  rotateUrl: (workspaceId: string) =>
+    apiRequest<SyncSettings>(`/api/workspaces/${workspaceId}/sync/rotate-url`, { method: 'POST' }),
+  disconnect: (workspaceId: string) =>
+    apiRequest<void>(`/api/workspaces/${workspaceId}/sync`, { method: 'DELETE' }),
 }

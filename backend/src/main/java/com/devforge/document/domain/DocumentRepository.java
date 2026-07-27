@@ -24,6 +24,17 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
 
     Optional<Document> findByWorkspaceIdAndSlug(UUID workspaceId, String slug);
 
+    /**
+     * Slugs only.
+     *
+     * <p>Used to work out what an external source no longer contains. Loading whole
+     * documents to compare names would pull every body in the workspace into memory
+     * to answer a question about strings.
+     */
+    @org.springframework.data.jpa.repository.Query(
+            "SELECT d.slug FROM Document d WHERE d.workspaceId = :workspaceId")
+    List<String> findSlugsByWorkspaceId(UUID workspaceId);
+
     Optional<Document> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
 
     boolean existsByWorkspaceIdAndSlug(UUID workspaceId, String slug);

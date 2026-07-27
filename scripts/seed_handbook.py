@@ -1682,6 +1682,107 @@ and remain visible here.
 """,
     },
     {
+        "slug": "sync-from-git",
+        "title": "Writing documentation in git",
+        "type": "PROCEDURE",
+        "content": """\
+# Writing documentation in git
+
+Keep your documentation as markdown in a repository, push, and let this workspace
+follow it. Review documentation in a pull request like any other change.
+
+## Setting it up
+
+**Workspace → Settings → Sync from git.** Give it a repository URL, a branch, and the
+folder your markdown lives in. Press **Sync now** — you should not have to push a
+commit to find out whether the settings are right.
+
+Then wire the webhook so every push syncs:
+
+1. Copy the **webhook URL** from the settings panel.
+2. Press **Generate secret** and copy the value. It is shown once — it is stored
+   encrypted, so nothing can show it again.
+3. In your git host, add a webhook with that URL, content type
+   `application/json`, and that secret.
+
+Deliveries with no signature, or the wrong one, are refused. Until a secret exists
+every delivery is refused, because a delivery that cannot be verified is not
+accepted.
+
+## How files become documents
+
+The filename is the slug, so `docs/runbooks/consumer-lag.md` becomes
+`consumer-lag`. Directories are not folded into the slug: a URL should not bake in a
+layout that will be reorganised later. Two files with the same name in different
+folders collide, which the sync reports rather than letting one quietly overwrite the
+other.
+
+Front matter is optional:
+
+```markdown
+---
+title: Event ingestion pipeline
+type: ARCHITECTURE
+internal: false
+---
+
+# Event ingestion pipeline
+```
+
+Every key can be left out. Without a `title` the first `#` heading is used, and
+failing that the filename — most documentation already opens with its own title, and
+repeating it in front matter is duplication that goes stale. Without a `type`, the
+default from the settings panel applies.
+
+Only `.md` and `.markdown` files are read. Anything else in the repository is ignored.
+
+## When a file is deleted
+
+You choose, because the safe answer depends on the repository:
+
+| Setting | What happens |
+|---|---|
+| **Mark it internal** (default) | Withdrawn from published documentation, history kept |
+| **Delete it** | Removed, along with its revisions |
+| **Leave it alone** | For a repository holding only part of the documentation |
+
+The default is the recoverable one deliberately. Deleting is what git means by a
+removed file, but a mistyped folder makes *every* file look removed at once.
+
+Which is why: **a sync that finds no documentation at all refuses to withdraw
+anything.** A repository that is genuinely empty is indistinguishable from a wrong
+folder, so the destructive reading is rejected and the message tells you to check the
+path.
+
+## Editing here as well as in git
+
+You can do both. The repository wins on sync, and nothing is lost — the version
+someone typed here stays in the document's **History** as a revision, so you can see
+exactly what happened and restore it.
+
+Every revision applied from a repository is marked as synced rather than edited, so
+history answers "why did this page change?" and not merely "when".
+
+## Private repositories
+
+Add an access token with read access. It is encrypted before being stored, so a
+database dump does not hand over a live credential, and it is never returned by the
+API — the settings screen only tells you whether one is stored.
+
+Rotating `DEVFORGE_JWT_SECRET` makes stored tokens unreadable. The sync then reports
+that plainly and asks you to enter the token again.
+
+## What this does not do yet
+
+- **References are not read from front matter.** Typed links between documents are
+  made in the interface. Authoring the reference graph in the repository is the
+  obvious next step and is not built.
+- **Nothing is pushed back.** Edits made here do not become commits.
+- **There is no history import.** A sync applies the current state of a ref; it does
+  not replay a repository's commits into revisions.
+""",
+    },
+    {
         "slug": "open-source",
         "title": "DevForge is open source",
         "type": "GENERAL",
@@ -1960,6 +2061,9 @@ REFERENCES: list[tuple[str, str, str]] = [
     ("use-case-runbooks", "DEPENDS_ON", "reference-graph"),
     ("use-case-runbooks", "RELATED", "troubleshooting"),
     ("open-source", "DOCUMENTS", "welcome"),
+    ("sync-from-git", "DEPENDS_ON", "tutorial-writing-documents"),
+    ("sync-from-git", "RELATED", "history-and-attribution"),
+    ("sync-from-git", "DOCUMENTS", "document-types"),
     ("history-and-attribution", "DEPENDS_ON", "tutorial-writing-documents"),
     ("history-and-attribution", "DOCUMENTS", "roles-and-permissions"),
     ("history-and-attribution", "RELATED", "api-documents"),
@@ -1995,6 +2099,10 @@ TASKS: list[tuple[str, str, str, str, list[str]]] = [
      "reachable by anyone else, and appoint a second operator so one lost password cannot "
      "leave the instance unconfigurable.",
      ["self-hosting", "first-run-setup", "instance-settings"]),
+    ("Try it", "Point a workspace at a git repository", "MEDIUM",
+     "Put a couple of markdown files in a repo, configure the sync, and press Sync now. Then "
+     "delete one upstream and watch it be withdrawn rather than destroyed.",
+     ["sync-from-git"]),
     ("Try it", "Edit a page, then read its history", "MEDIUM",
      "Make an edit, open History, and read the diff. Then restore the earlier revision and "
      "notice that history grew rather than rewound.",
