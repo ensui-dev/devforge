@@ -180,6 +180,12 @@ export function GitSyncPanel({ workspaceId }: { workspaceId: string }) {
           become documents; a file that disappears is withdrawn. Edits made here are never lost —
           the repository wins, and the previous version stays in the document's history.
         </p>
+        <p className="panel__note">
+          Typed links can be declared in front matter too, so the reference graph is reviewed in a
+          pull request along with the change that made it true:{' '}
+          <code>depends_on: kafka-conventions, event-schema</code>. A file that declares none keeps
+          whatever links were made here.
+        </p>
       </div>
 
       {save.error && !(save.error instanceof ApiError && Object.keys(save.error.fieldErrors).length) ? (
