@@ -37,6 +37,7 @@ public class SyncService {
     private final SecretCipher cipher;
     private final SyncRunner runner;
     private final AuditTrail auditTrail;
+    private final HostedRepositories repositories;
     private final SecureRandom random = new SecureRandom();
 
     public SyncService(
@@ -44,13 +45,15 @@ public class SyncService {
             WorkspaceAccess workspaceAccess,
             SecretCipher cipher,
             SyncRunner runner,
-            AuditTrail auditTrail
+            AuditTrail auditTrail,
+            HostedRepositories repositories
     ) {
         this.repository = repository;
         this.workspaceAccess = workspaceAccess;
         this.cipher = cipher;
         this.runner = runner;
         this.auditTrail = auditTrail;
+        this.repositories = repositories;
     }
 
     public SyncSettingsResponse describe(UUID workspaceId, UUID userId) {
@@ -59,6 +62,28 @@ public class SyncService {
         return repository.findByWorkspaceId(workspaceId)
                 .map(configuration -> SyncSettingsResponse.from(configuration))
                 .orElseGet(SyncSettingsResponse::notConfigured);
+    }
+
+    /**
+     * The repository DevForge hosts for this workspace.
+     *
+     * <p>Readable by any member, unlike the sync settings: the clone URL is not a
+     * secret — the token is — and a member who cannot see the address cannot use
+     * the feature at all.
+     */
+    public GitRepositoryResponse describeRepository(UUID workspaceId, UUID userId) {
+        workspaceAccess.requireAccess(workspaceId, userId, WorkspaceRole.VIEWER);
+        if (!repositories.enabled()) {
+            return GitRepositoryResponse.disabled();
+        }
+
+        return new GitRepositoryResponse(
+                true,
+                repositories.exists(workspaceId),
+                workspaceAccess.addressOf(workspaceId)
+                        .map(address -> "/git/" + address + ".git")
+                        .orElse(null),
+                repositories.sizeOf(workspaceId).orElse(null));
     }
 
     @Transactional

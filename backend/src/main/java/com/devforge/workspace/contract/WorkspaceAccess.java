@@ -51,4 +51,20 @@ public interface WorkspaceAccess {
             String slug,
             UUID userId,
             WorkspaceRole minimumRole);
+
+    /**
+     * The {@code handle/slug} pair a workspace answers to, published or not.
+     *
+     * <p>The inverse of {@link #findForCaller}, and the same naming a published
+     * documentation path uses. A module that has to <em>show</em> someone the
+     * address — a git remote to clone — needs it built by the module that owns the
+     * naming rather than assembled from two half-known pieces elsewhere.
+     *
+     * <p>Deliberately not on {@link WorkspaceRef}: that is returned by every
+     * authorisation check in the product, and resolving an owner's handle on each
+     * one would be a query nobody asked for.
+     *
+     * @return empty when there is no such workspace, or its owner's account is gone
+     */
+    java.util.Optional<String> addressOf(UUID workspaceId);
 }

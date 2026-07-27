@@ -34,6 +34,9 @@ export function WorkspaceListPage() {
             {user?.displayName}
             {user?.handle ? <span className="workspaces__handle"> @{user.handle}</span> : null}
           </span>
+          <Link className="workspaces__instance-link" to="/account">
+            Git access
+          </Link>
           {/* Only an operator sees this; the server refuses everyone else. */}
           {user?.instanceAdmin ? (
             <Link className="workspaces__instance-link" to="/instance">

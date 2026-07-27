@@ -86,6 +86,30 @@ under `DEVFORGE_GIT_ROOT`. Two consequences worth knowing:
   mistake must be treated as leaked and rotated, exactly as on any other git host —
   removing it in a later commit is not enough.
 
+### Git access tokens are account credentials
+
+A git access token carries exactly the access its account has, across every workspace
+that account is a member of — it is not scoped to one repository. Treat it as a
+password: revoke it if a machine is lost, and prefer an expiry for anything
+automated.
+
+Only a SHA-256 digest is stored, so a database dump does not hand over working
+credentials. The digest is deliberately not bcrypt: the secret is 256 random bits, so
+there is nothing for a work factor to defend against, and a clone authenticates
+several times in a row.
+
+Cloning requires `VIEWER` and pushing requires `MEMBER`, checked on every request
+rather than at clone time. There is no anonymous access: a workspace the caller
+cannot see is reported as absent, so a git URL cannot be used to discover which
+workspaces exist.
+
+### Edits are committed back under the editor's name
+
+A page edited in the interface becomes a commit in the hosted repository, authored
+with the editing account's display name and email address. Those appear in
+`git log` for anyone who can clone the workspace — which is anyone with `VIEWER`,
+a wider audience than the account might expect from an internal edit.
+
 ## Design decisions relevant to security
 
 - **Tokens are HMAC-signed JWTs** with a 12-hour life and no refresh or

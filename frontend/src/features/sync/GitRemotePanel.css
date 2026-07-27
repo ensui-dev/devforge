@@ -1,0 +1,48 @@
+@import '../../styles/utilities.css';
+
+/*
+ * The workspace as a remote. Read top to bottom as the thing you would do: copy
+ * the URL, run the commands, know what to sign in with.
+ */
+
+.gitremote {
+  max-width: 42rem;
+  display: grid;
+  gap: var(--space-4);
+}
+
+.gitremote__url {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.gitremote__url input {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+/* Commands are read as a block, so they get a block's weight rather than a
+   field's — and scroll on their own so a long URL cannot widen the page. */
+.gitremote__commands {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.7;
+  white-space: pre;
+}
+
+.gitremote__hint {
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+}
+
+.gitremote__hint a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

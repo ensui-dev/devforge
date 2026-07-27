@@ -71,6 +71,11 @@ export const queryKeys = {
 
   sync: {
     settings: (workspaceId: string) => ['workspaces', workspaceId, 'sync'] as const,
+    repository: (workspaceId: string) => ['workspaces', workspaceId, 'git'] as const,
+  },
+
+  gitTokens: {
+    all: ['me', 'git-tokens'] as const,
   },
 
   boards: {

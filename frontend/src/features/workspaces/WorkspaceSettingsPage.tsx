@@ -9,6 +9,7 @@ import { Modal } from '../../shared/components/Modal'
 import { useToast } from '../../shared/components/useToast'
 import { roleAtLeast } from '../../shared/types'
 import { slugify } from '../../shared/utils/slugify'
+import { GitRemotePanel } from '../sync/GitRemotePanel'
 import { GitSyncPanel } from '../sync/GitSyncPanel'
 import { PublicationPanel } from './PublicationPanel'
 import { useCurrentWorkspace } from './WorkspaceContext'
@@ -158,6 +159,10 @@ export function WorkspaceSettingsPage() {
       </form>
 
       <PublicationPanel workspace={workspace} />
+
+      {/* The workspace as a remote, before the panel that follows someone else's
+          repository: cloning this one is the simpler of the two and needs no setup. */}
+      <GitRemotePanel workspaceId={workspace.id} />
 
       {/* Admin-only, like the rest of this screen: it decides where the workspace's
           documentation comes from, and the wrong repository could withdraw every

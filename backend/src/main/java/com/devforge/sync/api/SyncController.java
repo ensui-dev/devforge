@@ -1,5 +1,6 @@
 package com.devforge.sync.api;
 
+import com.devforge.sync.application.GitRepositoryResponse;
 import com.devforge.sync.application.SyncOutcome;
 import com.devforge.sync.application.SyncService;
 import com.devforge.sync.application.SyncSettingsRequest;
@@ -47,6 +48,15 @@ public class SyncController {
             @CurrentUser UUID userId
     ) {
         return syncService.describe(workspaceId, userId);
+    }
+
+    @GetMapping("/api/workspaces/{workspaceId}/git")
+    @Operation(summary = "The git repository DevForge hosts for this workspace")
+    public GitRepositoryResponse describeRepository(
+            @PathVariable UUID workspaceId,
+            @CurrentUser UUID userId
+    ) {
+        return syncService.describeRepository(workspaceId, userId);
     }
 
     @PutMapping("/api/workspaces/{workspaceId}/sync")

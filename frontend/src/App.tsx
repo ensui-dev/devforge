@@ -11,6 +11,7 @@ import { LoginPage } from './features/auth/LoginPage'
 import { RegisterPage } from './features/auth/RegisterPage'
 import { HomePage } from './features/site/HomePage'
 import { SetupPage } from './features/setup/SetupPage'
+import { GitAccessPage } from './features/account/GitAccessPage'
 import { InstanceSettingsPage } from './features/instance/InstanceSettingsPage'
 import { InstanceActivityPage } from './features/activity/InstanceActivityPage'
 import { WorkspaceActivityPage } from './features/activity/WorkspaceActivityPage'
@@ -73,6 +74,7 @@ export function App() {
                       <Route path="/app" element={<WorkspaceListPage />} />
                       {/* Guarded again by the server, which refuses anyone who is
                           not an instance administrator. */}
+                      <Route path="/account" element={<GitAccessPage />} />
                       <Route path="/instance" element={<InstanceSettingsPage />} />
                       <Route path="/instance/activity" element={<InstanceActivityPage />} />
                       <Route path="/workspaces/:workspaceId" element={<WorkspaceLayout />}>

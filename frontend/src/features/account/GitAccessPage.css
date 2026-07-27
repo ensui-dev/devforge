@@ -1,0 +1,94 @@
+@import '../../styles/utilities.css';
+
+/*
+ * Two panels, in the order they are used: issue one, then manage the ones you
+ * have. The secret never appears on this page — it only ever appears in the
+ * dialog that says it will not appear again.
+ */
+
+.gitaccess {
+  display: grid;
+  gap: var(--space-5);
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4);
+}
+
+.gitaccess__back {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.gitaccess__form {
+  display: grid;
+  gap: var(--space-4);
+  justify-items: start;
+}
+
+.gitaccess__form > * {
+  width: 100%;
+}
+
+.gitaccess__form > button {
+  width: auto;
+}
+
+.gitaccess__list {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.gitaccess__token {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.gitaccess__name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.gitaccess__meta {
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+}
+
+.gitaccess__meta code {
+  font-family: var(--font-mono);
+  color: var(--ink);
+}
+
+.gitaccess__empty {
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+/* Shown once and never again, so it carries the weight of something to act on. */
+.gitaccess__once {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  margin-bottom: var(--space-3);
+}
+
+.gitaccess__secret {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  word-break: break-all;
+  padding: var(--space-3);
+  background: var(--paper-raised);
+  border: 1px solid color-mix(in srgb, var(--signal) 35%, transparent);
+  border-radius: var(--radius-sm);
+  user-select: all;
+}

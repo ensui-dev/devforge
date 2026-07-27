@@ -374,6 +374,48 @@ class GitHostingIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.content").value("# A"));
     }
 
+    // -------------------------------------------------------------- the clone URL
+
+    /**
+     * The path half only. The browser supplies the origin, which is the only way to
+     * be right about it behind a reverse proxy or a tunnel.
+     */
+    @Test
+    void tellsAMemberWhereToCloneFrom() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+
+        mockMvc.perform(authed(get("/api/workspaces/{w}/git", ws), owner))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enabled").value(true))
+                .andExpect(jsonPath("$.clonePath").value("/git/" + owner.handle() + "/platform.git"))
+                // Nobody has cloned or pushed yet, so there is nothing on disk.
+                .andExpect(jsonPath("$.exists").value(false));
+    }
+
+    @Test
+    void reportsTheRepositoryOnceSomethingHasBeenPushed() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        Path work = workingCopy("size", "docs/a.md", "# A");
+        gitOk(work, "push", "-q", remote(owner, "platform", tokenFor(owner)), "main");
+
+        mockMvc.perform(authed(get("/api/workspaces/{w}/git", ws), owner))
+                .andExpect(jsonPath("$.exists").value(true))
+                .andExpect(jsonPath("$.sizeBytes").isNumber());
+    }
+
+    /** Reading the address needs only membership; the sync settings need ADMIN. */
+    @Test
+    void hidesTheAddressFromSomeoneWhoIsNotAMember() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        TestUser outsider = registerUser("outsider@acme.test", "Outsider");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+
+        mockMvc.perform(authed(get("/api/workspaces/{w}/git", ws), outsider))
+                .andExpect(status().isNotFound());
+    }
+
     // ------------------------------------------------------- committing back out
 
     /** A fresh clone of the workspace's repository, as a directory of real files. */

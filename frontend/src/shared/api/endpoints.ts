@@ -15,9 +15,13 @@ import type {
   DocumentRevision,
   DocumentSummary,
   DocumentType,
+  GitAccessToken,
+  GitAccessTokenPayload,
+  GitRepository,
   Handbook,
   Instance,
   InstanceSettingsPayload,
+  IssuedGitAccessToken,
   InstanceUser,
   LoginPayload,
   MoveTaskPayload,
@@ -314,4 +318,22 @@ export const syncApi = {
     apiRequest<SyncSettings>(`/api/workspaces/${workspaceId}/sync/rotate-url`, { method: 'POST' }),
   disconnect: (workspaceId: string) =>
     apiRequest<void>(`/api/workspaces/${workspaceId}/sync`, { method: 'DELETE' }),
+  /** The repository DevForge hosts, for the clone URL. Readable by any member. */
+  repository: (workspaceId: string) =>
+    apiRequest<GitRepository>(`/api/workspaces/${workspaceId}/git`),
+}
+
+/**
+ * The signed-in account's git credentials.
+ *
+ * Scoped to the caller by the server: there is no path here that names a user, so
+ * there is no way to reach anyone else's.
+ */
+export const gitTokenApi = {
+  list: () => apiRequest<GitAccessToken[]>('/api/me/git-tokens'),
+  /** The response carries the secret. It is the only time it can be read. */
+  create: (payload: GitAccessTokenPayload) =>
+    apiRequest<IssuedGitAccessToken>('/api/me/git-tokens', { method: 'POST', ...json(payload) }),
+  revoke: (tokenId: string) =>
+    apiRequest<void>(`/api/me/git-tokens/${tokenId}`, { method: 'DELETE' }),
 }

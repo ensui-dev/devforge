@@ -370,12 +370,37 @@ Columns may carry a work-in-progress limit, checked when a task arrives.
 | `POST` | `/api/workspaces/{id}/sync/rotate-url` | Mint a new webhook URL |
 | `DELETE` | `/api/workspaces/{id}/sync` | Disconnect and forget the credentials |
 | `POST` | `/api/public/sync/{webhookId}` | Webhook endpoint; verified by HMAC signature |
+| `GET` | `/api/workspaces/{id}/git` | The hosted repository's clone path and size |
 
 The webhook is unauthenticated because a git host has no session. An HMAC-SHA256
 signature over the raw request body is what authorises it, accepted as either
 GitHub's `X-Hub-Signature-256` or Forgejo/Gitea's bare-hex header. Anything that does
 not verify gets a 404 — distinguishing "no such webhook" from "wrong secret" would
 confirm that a workspace syncs.
+
+### Git hosting
+
+DevForge serves the smart-HTTP protocol at `/git/{owner-handle}/{workspace-slug}.git`,
+so a workspace can be cloned and pushed to like any other repository. Cloning needs
+`VIEWER`, pushing needs `MEMBER`, and there is no anonymous access — documentation is
+published at `/docs`, and a repository is not a second public surface.
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/me/git-tokens` | The signed-in account's git credentials |
+| `POST` | `/api/me/git-tokens` | Issue one; the secret is returned exactly once |
+| `DELETE` | `/api/me/git-tokens/{id}` | Revoke one |
+
+Git speaks HTTP Basic and nothing else, so authentication is a token rather than an
+SSH key, presented as the password. Only a SHA-256 digest is stored — a plain digest
+rather than bcrypt, because the secret is 256 random bits, and a work factor defends
+low-entropy secrets while costing time on every request a clone makes.
+
+Syncing is two-way. A push is imported through the same planner the webhook path
+uses, and an edit made in the interface becomes a commit authored by whoever made it.
+The two cannot loop: a change whose origin is a sync is never committed back. The
+commit runs after the edit's transaction commits, so git trouble can leave the
+repository behind but cannot make a page fail to save.
 
 ## Testing
 
@@ -560,10 +585,11 @@ Deliberate omissions, in rough priority order:
   document body is stored once per distinct content, so a restore or a reverted edit
   adds none — but nothing prunes them. Deleting a document removes its revisions;
   its audit entries are kept deliberately.
-- **Pushing back to git.** Sync is one-way: edits made in DevForge do not become
-  commits.
 - **Importing git history.** A sync applies the state of a ref rather than replaying
   commits into revisions.
+- **Committing back to an external remote.** Edits become commits in the repository
+  DevForge hosts, never in a repository somewhere else — following a remote stays
+  one-way.
 - **Password reset.** An operator can create accounts and hand out a temporary
   password, but nobody can reset their own.
 - **SMTP.** Nothing sends email, so registration is not verified and there are no

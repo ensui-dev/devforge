@@ -91,6 +91,20 @@ public class WorkspaceAccessService implements WorkspaceAccess, WorkspaceLookup 
         );
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>No authorisation: this turns an id the caller already holds into the name
+     * for it. Having the id is the permission — anything that reached one went
+     * through {@link #requireAccess} to get it.
+     */
+    @Override
+    public java.util.Optional<String> addressOf(UUID workspaceId) {
+        return workspaceRepository.findById(workspaceId)
+                .flatMap(workspace -> userDirectory.findById(workspace.getOwnerUserId())
+                        .map(owner -> owner.handle() + "/" + workspace.getSlug()));
+    }
+
     @Override
     public java.util.Optional<PublishedWorkspace> findPublished(String handle, String slug) {
         return userDirectory.findByHandle(handle)

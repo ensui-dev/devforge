@@ -499,6 +499,45 @@ export interface SyncSettings {
   problems: string[]
 }
 
+/**
+ * The git repository DevForge hosts for a workspace.
+ *
+ * `clonePath` is the path only — the browser supplies the origin, which is the
+ * only way to be right about it behind a reverse proxy or a tunnel.
+ */
+export interface GitRepository {
+  /** Whether this instance serves git at all. */
+  enabled: boolean
+  /** A repository appears the first time somebody clones or pushes. */
+  exists: boolean
+  clonePath: string | null
+  sizeBytes: number | null
+}
+
+/** A credential git uses. The secret is never returned after it is issued. */
+export interface GitAccessToken {
+  id: string
+  name: string
+  /** The leading characters, enough to tell two tokens apart. */
+  hint: string
+  createdAt: string
+  lastUsedAt: string | null
+  expiresAt: string | null
+  expired: boolean
+}
+
+/** The one response that carries a token's secret. */
+export interface IssuedGitAccessToken {
+  token: GitAccessToken
+  secret: string
+}
+
+export interface GitAccessTokenPayload {
+  name: string
+  /** Omit for a token that works until it is revoked. */
+  expiresInDays?: number | null
+}
+
 export interface SyncSettingsPayload {
   repositoryUrl: string
   branch: string
