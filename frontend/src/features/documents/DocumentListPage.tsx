@@ -10,6 +10,7 @@ import {
   type DocumentType,
 } from '../../shared/types'
 import { formatRelative } from '../../shared/utils/slugify'
+import { useDebounced } from '../../shared/utils/useDebounced'
 import { useCurrentWorkspace } from '../workspaces/WorkspaceContext'
 import { CreateDocumentDialog } from './CreateDocumentDialog'
 import { useDocumentList } from './useDocuments'
@@ -37,14 +38,19 @@ export function DocumentListPage() {
   const [page, setPage] = useState(0)
   const [dialogOpen, setDialogOpen] = useState(false)
 
+  // The box updates immediately; the query waits for typing to settle. Every
+  // keystroke used to be a request, which mattered little while nothing matched
+  // until a word was finished and matters now that a prefix does.
+  const settledSearch = useDebounced(search)
+
   const { data, isPending, error, refetch, isPlaceholderData } = useDocumentList(workspace.id, {
     documentType,
     page,
-    search,
+    search: settledSearch,
   })
 
   const canWrite = roleAtLeast(workspace.callerRole, 'MEMBER')
-  const searching = search.trim().length > 0
+  const searching = settledSearch.trim().length > 0
   const filtered = !searching && documentType !== 'ALL'
 
   /*
