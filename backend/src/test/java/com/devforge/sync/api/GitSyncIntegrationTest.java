@@ -654,6 +654,98 @@ class GitSyncIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.hasAccessToken").value(false));
     }
 
+    // ------------------------------------------------------------- folder slugs
+
+    /**
+     * Folders below the documentation path become part of the slug, and the whole
+     * thing has to survive being a URL — which spans several path segments, so the
+     * routes match on the remainder rather than on one segment.
+     */
+    @Test
+    void mirrorsFoldersIntoSlugsAndStillRoutesThem() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        configure(owner, ws, "ARCHIVE");
+
+        source.files = List.of(
+                new SourceFile("docs/design.md", "# Design"),
+                new SourceFile("docs/runbooks/consumer-lag.md", "# Consumer lag"));
+
+        mockMvc.perform(authed(post("/api/workspaces/{w}/sync/run", ws), owner))
+                .andExpect(jsonPath("$.lastCreated").value(2));
+
+        mockMvc.perform(authed(
+                        get("/api/workspaces/{w}/documents/by-slug/runbooks/consumer-lag", ws), owner))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.slug").value("runbooks/consumer-lag"))
+                .andExpect(jsonPath("$.title").value("Consumer lag"));
+    }
+
+    /** The collision that made flattening wrong, now simply two documents. */
+    @Test
+    void importsSameNamedFilesFromDifferentFolders() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        configure(owner, ws, "ARCHIVE");
+
+        source.files = List.of(
+                new SourceFile("docs/README.md", "# Root readme"),
+                new SourceFile("docs/frontend/README.md", "# Frontend readme"));
+
+        mockMvc.perform(authed(post("/api/workspaces/{w}/sync/run", ws), owner))
+                .andExpect(jsonPath("$.lastStatus").value("OK"))
+                .andExpect(jsonPath("$.lastCreated").value(2))
+                .andExpect(jsonPath("$.problems.length()").value(0));
+
+        mockMvc.perform(authed(get("/api/workspaces/{w}/documents/by-slug/readme", ws), owner))
+                .andExpect(jsonPath("$.title").value("Root readme"));
+        mockMvc.perform(authed(
+                        get("/api/workspaces/{w}/documents/by-slug/frontend/readme", ws), owner))
+                .andExpect(jsonPath("$.title").value("Frontend readme"));
+    }
+
+    /** A published folder slug has to work as a public URL too. */
+    @Test
+    void servesAFolderSlugFromThePublicDocumentationUrl() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        configure(owner, ws, "ARCHIVE");
+        source.files = List.of(
+                new SourceFile("docs/runbooks/consumer-lag.md", "# Consumer lag"));
+        mockMvc.perform(authed(post("/api/workspaces/{w}/sync/run", ws), owner));
+
+        mockMvc.perform(authed(put("/api/workspaces/{w}/publication", ws), owner)
+                        .content("{\"published\":true}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/public/docs/{h}/{s}/runbooks/consumer-lag",
+                        owner.handle(), "platform"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.slug").value("runbooks/consumer-lag"))
+                .andExpect(jsonPath("$.title").value("Consumer lag"));
+    }
+
+    /** A link may name a folder path, and resolves to that document. */
+    @Test
+    void resolvesALinkThatNamesAFolderPath() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        configure(owner, ws, "ARCHIVE");
+
+        source.files = List.of(
+                new SourceFile("docs/design.md",
+                        "---\ndepends_on: runbooks/consumer-lag\n---\nbody"),
+                new SourceFile("docs/runbooks/consumer-lag.md", "# Consumer lag"));
+
+        mockMvc.perform(authed(post("/api/workspaces/{w}/sync/run", ws), owner))
+                .andExpect(jsonPath("$.lastStatus").value("OK"));
+
+        UUID design = documentIdOf(owner, ws, "design");
+        mockMvc.perform(authed(
+                        get("/api/workspaces/{w}/documents/{d}/references", ws, design), owner))
+                .andExpect(jsonPath("$[0].relatedDocumentSlug").value("runbooks/consumer-lag"));
+    }
+
     // ---------------------------------------------------------- reference graph
 
     /**

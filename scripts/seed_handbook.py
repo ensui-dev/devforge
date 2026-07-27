@@ -1711,11 +1711,21 @@ accepted.
 
 ## How files become documents
 
-The filename is the slug, so `docs/runbooks/consumer-lag.md` becomes
-`consumer-lag`. Directories are not folded into the slug: a URL should not bake in a
-layout that will be reorganised later. Two files with the same name in different
-folders collide, which the sync reports rather than letting one quietly overwrite the
-other.
+The path below your documentation folder is the slug, folders and all:
+
+| File | Slug |
+|---|---|
+| `docs/design.md` | `design` |
+| `docs/runbooks/consumer-lag.md` | `runbooks/consumer-lag` |
+| `docs/frontend/README.md` | `frontend/readme` |
+
+So the tree you have in the repository is the tree you get here, and the page is
+served at `/docs/{owner}/{workspace}/runbooks/consumer-lag`. Names are lowercased and
+hyphenated a segment at a time, so `Runbooks/Consumer Lag.md` lands in the same place.
+
+Two files can still collide if their names differ only in punctuation —
+`Consumer Lag.md` and `consumer-lag.md` in one folder — which the sync reports rather
+than letting one quietly overwrite the other.
 
 Front matter is optional:
 
@@ -1765,9 +1775,25 @@ history answers "why did this page change?" and not merely "when".
 
 ## Private repositories
 
-Add an access token with read access. It is encrypted before being stored, so a
-database dump does not hand over a live credential, and it is never returned by the
-API — the settings screen only tells you whether one is stored.
+Add a **personal access token** — not an SSH key. Syncing reads over HTTPS, by
+downloading an archive of the branch, so there is no SSH connection for a key to
+authenticate. If you have a deploy key set up for cloning, it will not work here.
+
+Read access to the one repository is enough. Nothing is ever written back, so a
+token with write scope grants more than this needs.
+
+| Host | Where | Scope |
+|---|---|---|
+| GitHub | Settings → Developer settings → Personal access tokens → **Fine-grained** | This repository only, `Contents: Read-only` |
+| GitLab | Project → Settings → Access tokens | Role `Reporter`, scope `read_repository` |
+| Gitea / Forgejo | Settings → Applications → Generate token | `read:repository` |
+
+A fine-grained GitHub token scoped to one repository is the narrowest of these, and
+what to prefer if the choice is offered.
+
+The token is encrypted before being stored, so a database dump does not hand over a
+live credential, and it is never returned by the API — the settings screen only tells
+you whether one is stored.
 
 Rotating `DEVFORGE_JWT_SECRET` makes stored tokens unreadable. The sync then reports
 that plainly and asks you to enter the token again.
@@ -1787,8 +1813,9 @@ implements: event-driven-design
 ```
 
 The five relationships are `related`, `depends_on`, `implements`, `documents`, and
-`supersedes`. Targets are comma separated, and may name either a slug or a filename —
-`Kafka Topic Conventions.md` and `kafka-topic-conventions` mean the same page.
+`supersedes`. Targets are comma separated, and may name a slug, a filename, or a path with folders
+— `runbooks/consumer-lag`, `runbooks/Consumer Lag.md`, and
+`runbooks/consumer-lag.md` all mean the same page.
 
 Which means **the reference graph gets reviewed in a pull request**. Someone adding a
 dependency between two documents shows up as a diff, with the rest of the change that

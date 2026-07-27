@@ -255,9 +255,35 @@ export function GitSyncPanel({ workspaceId }: { workspaceId: string }) {
           placeholder={current.hasAccessToken ? 'A token is stored — type to replace it' : ''}
           value={form.accessToken}
           error={fieldError('accessToken')}
-          hint="Only needed for a private repository. Read access is enough. Stored encrypted."
+          hint={
+            current.hasAccessToken
+              ? 'A personal access token, not an SSH key — syncing reads over HTTPS. Leave blank to keep the stored one.'
+              : 'Only for a private repository. A personal access token, not an SSH key: syncing reads over HTTPS, so an SSH key cannot be used. Read access to this one repository is enough. Stored encrypted.'
+          }
           onChange={(event) => set('accessToken', event.target.value)}
         />
+
+        {/* Naming the setting per host saves a search: every one of them calls it
+            something slightly different, and most default to far more scope than
+            reading one repository needs. */}
+        <details className="gitsync__tokens">
+          <summary>Where to create one</summary>
+          <ul>
+            <li>
+              <strong>GitHub</strong> — Settings → Developer settings → Personal access
+              tokens → <em>Fine-grained tokens</em>. Grant only this repository, with
+              <code>Contents: Read-only</code>.
+            </li>
+            <li>
+              <strong>GitLab</strong> — Project → Settings → Access tokens, role
+              <code>Reporter</code>, scope <code>read_repository</code>.
+            </li>
+            <li>
+              <strong>Gitea / Forgejo</strong> — Settings → Applications → Generate token,
+              scope <code>read:repository</code>.
+            </li>
+          </ul>
+        </details>
 
         <label className="gitsync__toggle">
           <input

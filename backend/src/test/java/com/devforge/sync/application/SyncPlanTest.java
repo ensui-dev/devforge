@@ -78,8 +78,9 @@ class SyncPlanTest {
                 Set.of(),
                 "docs");
 
+        // Folders below the documentation path are kept in the slug.
         assertThat(result.drafts()).extracting(DocumentDraft::slug)
-                .containsExactly("deep", "wanted");
+                .containsExactly("nested/deep", "wanted");
     }
 
     @Test
@@ -115,12 +116,11 @@ class SyncPlanTest {
     }
 
     /**
-     * Slugs are flat within a workspace, so two files with the same name in
-     * different directories collide. Reported rather than silently letting whichever
-     * sorted last overwrite the other.
+     * The case that made flattening wrong: two files of the same name in different
+     * folders are two documents, not a collision.
      */
     @Test
-    void reportsASlugCollisionInsteadOfOverwriting() {
+    void keepsSameNamedFilesInDifferentFoldersApart() {
         SyncPlan result = plan(
                 List.of(
                         file("docs/architecture/overview.md", "# Architecture overview"),
@@ -128,12 +128,29 @@ class SyncPlanTest {
                 Set.of(),
                 "docs");
 
+        assertThat(result.drafts()).extracting(DocumentDraft::slug)
+                .containsExactly("architecture/overview", "runbooks/overview");
+        assertThat(result.problems()).isEmpty();
+    }
+
+    /**
+     * A collision is still possible, just far rarer: two names in one folder that
+     * slugify identically. Reported rather than letting whichever sorted last
+     * overwrite the other.
+     */
+    @Test
+    void reportsASlugCollisionInsteadOfOverwriting() {
+        SyncPlan result = plan(
+                List.of(
+                        file("docs/Consumer Lag.md", "# From the spaced name"),
+                        file("docs/consumer-lag.md", "# From the hyphenated name")),
+                Set.of(),
+                "docs");
+
         assertThat(result.drafts()).hasSize(1);
-        assertThat(result.drafts().getFirst().title()).isEqualTo("Architecture overview");
         assertThat(result.problems()).anySatisfy(problem -> assertThat(problem)
-                .contains("runbooks/overview.md")
                 .contains("already taken")
-                .contains("architecture/overview.md"));
+                .contains("consumer-lag"));
     }
 
     /** Front-matter warnings must reach the operator, with the file that caused them. */

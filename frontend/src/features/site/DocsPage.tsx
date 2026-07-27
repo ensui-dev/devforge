@@ -106,7 +106,11 @@ function EdgeList({
 }
 
 export function DocsPage() {
-  const { handle: handleParam, workspaceSlug: workspaceParam, slug } = useParams()
+  const params = useParams()
+  const { handle: handleParam, workspaceSlug: workspaceParam } = params
+  // The splat holds the whole document slug, folders included. Empty string means
+  // the workspace was addressed without a page.
+  const slug = params['*'] ? params['*'] : undefined
 
   // Which documentation this instance opens when the URL names none.
   const { instance, isLoading: instanceLoading } = useInstance()

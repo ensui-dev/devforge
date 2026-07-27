@@ -17,8 +17,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class MarkdownFileTest {
 
+    /** Mirrors real use: files live below a configured documentation folder. */
     private MarkdownFile parse(String path, String raw) {
-        return MarkdownFile.parse(path, raw, DocumentType.GENERAL);
+        return MarkdownFile.parse(path, "docs", raw, DocumentType.GENERAL);
     }
 
     @Test
@@ -91,7 +92,7 @@ class MarkdownFileTest {
     @Test
     void warnsAboutAnUnknownDocumentTypeAndKeepsTheFallback() {
         MarkdownFile file = MarkdownFile.parse(
-                "a.md", "---\ntype: SPREADSHEET\n---\nx", DocumentType.RUNBOOK);
+                "a.md", "docs", "---\ntype: SPREADSHEET\n---\nx", DocumentType.RUNBOOK);
 
         assertThat(file.documentType()).isEqualTo(DocumentType.RUNBOOK);
         assertThat(file.warnings()).anyMatch(w -> w.contains("SPREADSHEET"));
@@ -279,5 +280,58 @@ class MarkdownFileTest {
 
         assertThat(file.references()).extracting(DeclaredReference::targetSlug)
                 .containsExactly("one", "two");
+    }
+
+    // ------------------------------------------------------------------- slugs
+
+    /**
+     * Folders are mirrored into the slug, relative to the configured documentation
+     * folder. Flattening them made two files of the same name in different folders
+     * collide, which a repository with a README at its root and another in a
+     * subdirectory hits immediately.
+     */
+    @Test
+    void mirrorsFoldersIntoTheSlug() {
+        assertThat(parse("docs/design.md", "# D").slug()).isEqualTo("design");
+        assertThat(parse("docs/runbooks/consumer-lag.md", "# C").slug())
+                .isEqualTo("runbooks/consumer-lag");
+        assertThat(parse("docs/a/b/c/deep.md", "# D").slug()).isEqualTo("a/b/c/deep");
+    }
+
+    /** The slug is relative to the documentation folder, not the repository root. */
+    @Test
+    void stripsTheConfiguredFolderFromTheSlug() {
+        assertThat(MarkdownFile.parse("docs/guides/a.md", "docs", "# A", DocumentType.GENERAL).slug())
+                .isEqualTo("guides/a");
+        // No folder configured: the whole repository path is the slug.
+        assertThat(MarkdownFile.parse("guides/a.md", "", "# A", DocumentType.GENERAL).slug())
+                .isEqualTo("guides/a");
+    }
+
+    /** The case that made flattening wrong. */
+    @Test
+    void keepsSameNamedFilesInDifferentFoldersApart() {
+        assertThat(parse("docs/README.md", "# Root").slug()).isEqualTo("readme");
+        assertThat(parse("docs/frontend/README.md", "# Frontend").slug())
+                .isEqualTo("frontend/readme");
+    }
+
+    @Test
+    void slugifiesEachSegmentSeparately() {
+        assertThat(parse("docs/Runbooks & Guides/Consumer Lag.md", "# C").slug())
+                .isEqualTo("runbooks-guides/consumer-lag");
+    }
+
+    /** A dot in a folder name is not an extension. */
+    @Test
+    void stripsTheExtensionFromTheFilenameOnly() {
+        assertThat(parse("docs/v1.2/notes.md", "# N").slug()).isEqualTo("v1-2/notes");
+    }
+
+    /** The title falls back to the filename, not to the whole path. */
+    @Test
+    void namesADeepFileAfterItsFilename() {
+        assertThat(parse("docs/runbooks/consumer-lag.md", "no heading").title())
+                .isEqualTo("Consumer lag");
     }
 }

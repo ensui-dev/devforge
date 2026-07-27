@@ -89,7 +89,8 @@ public record SyncPlan(
                 .toList();
 
         for (SourceFile file : considered) {
-            MarkdownFile parsed = MarkdownFile.parse(file.path(), file.text(), defaultType);
+            MarkdownFile parsed =
+                    MarkdownFile.parse(file.path(), documentPath, file.text(), defaultType);
             parsed.warnings().forEach(warning -> problems.add(file.path() + ": " + warning));
 
             String existingPath = pathBySlug.get(parsed.slug());

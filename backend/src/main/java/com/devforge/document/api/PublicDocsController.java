@@ -74,13 +74,22 @@ public class PublicDocsController {
         return publicDocsService.tableOfContents(handle, workspaceSlug);
     }
 
-    @GetMapping("/{handle}/{workspaceSlug}/{documentSlug}")
+    /**
+     * {@code {*documentSlug}} rather than {@code {documentSlug}}: a slug mirrors the
+     * folders it came from, so {@code runbooks/consumer-lag} is one slug spanning two
+     * path segments. Spring hands it back with a leading slash, which is stripped.
+     */
+    @GetMapping("/{handle}/{workspaceSlug}/{*documentSlug}")
     @Operation(summary = "Read one published page with its reference graph")
     public PublicDocumentResponse document(
             @PathVariable String handle,
             @PathVariable String workspaceSlug,
             @PathVariable String documentSlug
     ) {
-        return publicDocsService.findDocument(handle, workspaceSlug, documentSlug);
+        return publicDocsService.findDocument(handle, workspaceSlug, trimLeadingSlash(documentSlug));
+    }
+
+    private static String trimLeadingSlash(String path) {
+        return path != null && path.startsWith("/") ? path.substring(1) : path;
     }
 }

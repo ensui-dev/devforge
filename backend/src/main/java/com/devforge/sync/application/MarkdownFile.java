@@ -88,6 +88,19 @@ public record MarkdownFile(
      * @param fallbackType the type to use when the file does not declare one
      */
     public static MarkdownFile parse(String path, String raw, DocumentType fallbackType) {
+        return parse(path, "", raw, fallbackType);
+    }
+
+    /**
+     * @param documentPath the configured documentation folder, so the slug mirrors
+     *                     the tree below it rather than below the repository root
+     */
+    public static MarkdownFile parse(
+            String path,
+            String documentPath,
+            String raw,
+            DocumentType fallbackType
+    ) {
         String text = raw == null ? "" : raw.replace("\r\n", "\n");
         List<String> warnings = new java.util.ArrayList<>();
 
@@ -108,7 +121,7 @@ public record MarkdownFile(
             }
         }
 
-        String slug = slugFrom(path);
+        String slug = slugFrom(path, documentPath);
         return new MarkdownFile(
                 slug,
                 title(front.get("title"), body, slug),
@@ -169,9 +182,10 @@ public record MarkdownFile(
     /**
      * Reads the relationship keys into declared links.
      *
-     * <p>Targets are comma separated and slugified the same way a filename is, so a
-     * link may name either the slug or the file — {@code kafka-conventions} and
-     * {@code Kafka Conventions.md} resolve to the same page.
+     * <p>Targets are comma separated and slugified the same way a path is, so a link
+     * may name a slug, a filename, or a path with folders —
+     * {@code runbooks/consumer-lag}, {@code runbooks/Consumer Lag.md}, and
+     * {@code runbooks/consumer-lag.md} all resolve to the same page.
      */
     private static List<DeclaredReference> references(
             Map<String, String> front,
@@ -230,7 +244,10 @@ public record MarkdownFile(
                 return trimmed.substring(2).strip();
             }
         }
-        return humanise(slug);
+        // The filename, not the whole path: a slug of `runbooks/consumer-lag` should
+        // fall back to "Consumer lag", not "Runbooks/consumer lag".
+        int lastSlash = slug.lastIndexOf('/');
+        return humanise(lastSlash >= 0 ? slug.substring(lastSlash + 1) : slug);
     }
 
     private static DocumentType type(String declared, DocumentType fallback, List<String> warnings) {
@@ -261,28 +278,62 @@ public record MarkdownFile(
     }
 
     /**
-     * The slug is the file's name without its extension, lowercased.
+     * The slug is the file's path below the documentation folder, without its
+     * extension, with each segment lowercased and hyphenated.
      *
-     * <p>Directories are dropped rather than folded into the slug: DevForge slugs
-     * are flat within a workspace, and turning {@code runbooks/consumer-lag.md} into
-     * {@code runbooks-consumer-lag} would bake the repository's layout into a URL
-     * that outlives it. Two files with the same name in different directories
-     * collide, which the planner reports rather than resolving silently.
+     * <pre>
+     * docs/design.md                 -> design
+     * docs/runbooks/consumer-lag.md  -> runbooks/consumer-lag
+     * </pre>
+     *
+     * <p>The folder structure is kept rather than flattened. An earlier version
+     * dropped directories, on the reasoning that a URL should not bake in a layout
+     * that will be reorganised — but that made two files of the same name in
+     * different folders collide, which is not rare at all: a repository with a
+     * {@code README.md} at its root and another in a subdirectory hits it
+     * immediately. Mirroring the tree is also what someone moving documentation out
+     * of a folder-based tool expects.
+     *
+     * @param path         repository-relative path of the file
+     * @param documentPath the configured documentation folder, stripped from the
+     *                     front so the slug is relative to it rather than to the
+     *                     repository root
      */
+    public static String slugFrom(String path, String documentPath) {
+        String relative = relativise(path, documentPath);
+
+        int dot = relative.lastIndexOf('.');
+        int lastSlash = relative.lastIndexOf('/');
+        // Only an extension on the final segment; a dot in a folder name is not one.
+        if (dot > lastSlash + 1) {
+            relative = relative.substring(0, dot);
+        }
+
+        String slug = java.util.Arrays.stream(relative.split("/"))
+                .map(MarkdownFile::slugifySegment)
+                .filter(segment -> !segment.isEmpty())
+                .collect(java.util.stream.Collectors.joining("/"));
+
+        return slug.isEmpty() ? "untitled" : slug;
+    }
+
+    /** Kept for callers that have already relativised the path. */
     public static String slugFrom(String path) {
-        String name = path;
-        int slash = name.lastIndexOf('/');
-        if (slash >= 0) {
-            name = name.substring(slash + 1);
+        return slugFrom(path, "");
+    }
+
+    private static String relativise(String path, String documentPath) {
+        if (documentPath == null || documentPath.isEmpty()) {
+            return path;
         }
-        int dot = name.lastIndexOf('.');
-        if (dot > 0) {
-            name = name.substring(0, dot);
-        }
-        String slug = name.toLowerCase()
+        String prefix = documentPath.endsWith("/") ? documentPath : documentPath + "/";
+        return path.startsWith(prefix) ? path.substring(prefix.length()) : path;
+    }
+
+    private static String slugifySegment(String segment) {
+        return segment.toLowerCase()
                 .replaceAll("[^a-z0-9]+", "-")
                 .replaceAll("^-+|-+$", "");
-        return slug.isEmpty() ? "untitled" : slug;
     }
 
     private static String humanise(String slug) {

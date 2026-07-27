@@ -61,7 +61,10 @@ export function App() {
                     <Route path="/docs" element={<DocsPage />} />
                     <Route path="/docs/:handle" element={<DocsPage />} />
                     <Route path="/docs/:handle/:workspaceSlug" element={<DocsPage />} />
-                    <Route path="/docs/:handle/:workspaceSlug/:slug" element={<DocsPage />} />
+                    {/* Splat, not a single segment: a document slug mirrors the folders it
+                        came from, so `runbooks/consumer-lag` is one slug across two
+                        segments. */}
+                    <Route path="/docs/:handle/:workspaceSlug/*" element={<DocsPage />} />
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/register" element={<RegisterPage />} />
 

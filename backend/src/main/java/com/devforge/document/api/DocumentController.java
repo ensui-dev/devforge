@@ -74,14 +74,16 @@ public class DocumentController {
         return documentService.search(workspaceId, userId, query, PageRequest.of(page, size));
     }
 
-    @GetMapping("/by-slug/{slug}")
+    /** {@code {*slug}} so a folder-bearing slug is one parameter, not several. */
+    @GetMapping("/by-slug/{*slug}")
     @Operation(summary = "Get a document by its slug, for stable deep links")
     public DocumentResponse getBySlug(
             @PathVariable UUID workspaceId,
             @PathVariable String slug,
             @CurrentUser UUID userId
     ) {
-        return documentService.findBySlug(workspaceId, slug, userId);
+        return documentService.findBySlug(
+                workspaceId, slug.startsWith("/") ? slug.substring(1) : slug, userId);
     }
 
     @GetMapping("/{documentId}")

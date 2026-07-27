@@ -10,7 +10,9 @@ public record UpdateDocumentRequest(
         @NotBlank @Size(max = 500) String title,
         @NotBlank
         @Size(max = 200)
-        @Pattern(regexp = "^[a-z0-9]+(?:-[a-z0-9]+)*$", message = "must be lowercase alphanumeric with hyphens")
+        @Pattern(
+                regexp = "^[a-z0-9]+(?:-[a-z0-9]+)*(?:/[a-z0-9]+(?:-[a-z0-9]+)*)*$",
+                message = "must be lowercase alphanumeric with hyphens, and may use / for folders")
         String slug,
         String content,
         @NotNull DocumentType documentType,
