@@ -9,6 +9,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
+import java.util.List;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
@@ -86,6 +87,15 @@ public class SyncConfiguration extends BaseEntity {
     @Column(name = "last_unchanged", nullable = false)
     private int lastUnchanged;
 
+    /**
+     * What the last attempt could not use, newline separated.
+     *
+     * <p>Persisted rather than returned once, so a reload still shows them and a
+     * webhook-triggered sync shows them at all.
+     */
+    @Column(name = "last_problems", columnDefinition = "text")
+    private String lastProblems;
+
     protected SyncConfiguration() {
         // for JPA
     }
@@ -158,8 +168,12 @@ public class SyncConfiguration extends BaseEntity {
             int created,
             int updated,
             int archived,
-            int unchanged
+            int unchanged,
+            List<String> problems
     ) {
+        this.lastProblems = problems == null || problems.isEmpty()
+                ? null
+                : String.join("\n", problems);
         this.lastStatus = status;
         this.lastRef = ref;
         this.lastMessage = message;
@@ -179,6 +193,7 @@ public class SyncConfiguration extends BaseEntity {
     public void recordFailure(String message) {
         this.lastStatus = SyncStatus.FAILED;
         this.lastMessage = message;
+        this.lastProblems = null;
         this.lastCreated = 0;
         this.lastUpdated = 0;
         this.lastArchived = 0;
@@ -267,5 +282,12 @@ public class SyncConfiguration extends BaseEntity {
 
     public int getLastUnchanged() {
         return lastUnchanged;
+    }
+
+    /** Empty when the last attempt used everything it found. */
+    public List<String> getLastProblems() {
+        return lastProblems == null || lastProblems.isBlank()
+                ? List.of()
+                : List.of(lastProblems.split("\n"));
     }
 }

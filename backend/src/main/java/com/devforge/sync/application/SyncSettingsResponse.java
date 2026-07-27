@@ -46,7 +46,7 @@ public record SyncSettingsResponse(
         List<String> problems
 ) {
 
-    public static SyncSettingsResponse from(SyncConfiguration configuration, List<String> problems) {
+    public static SyncSettingsResponse from(SyncConfiguration configuration) {
         return new SyncSettingsResponse(
                 configuration.isConfigured(),
                 configuration.getRepositoryUrl(),
@@ -68,7 +68,7 @@ public record SyncSettingsResponse(
                 configuration.getLastUpdated(),
                 configuration.getLastArchived(),
                 configuration.getLastUnchanged(),
-                problems == null ? List.of() : problems);
+                configuration.getLastProblems());
     }
 
     /** Before anything has been set up. */

@@ -357,6 +357,49 @@ class GitSyncIntegrationTest extends AbstractIntegrationTest {
                         org.hamcrest.Matchers.containsString("NONSENSE")));
     }
 
+    /**
+     * The regression this guards: problems used to live only in the response to a
+     * manual sync, so a reload lost them and a webhook-triggered sync never showed
+     * them at all. Reporting "1 problem(s)" without saying which is useless.
+     */
+    @Test
+    void keepsTheProblemsAfterTheResponseThatReportedThem() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        configure(owner, ws, "ARCHIVE");
+
+        source.files = List.of(
+                new SourceFile("docs/good.md", "# Good"),
+                new SourceFile("docs/odd.md", "---\ntype: NONSENSE\n---\nbody"));
+
+        mockMvc.perform(authed(post("/api/workspaces/{w}/sync/run", ws), owner))
+                .andExpect(jsonPath("$.problems[0]").value(
+                        org.hamcrest.Matchers.containsString("NONSENSE")));
+
+        // Read fresh, as a reload would.
+        mockMvc.perform(authed(get("/api/workspaces/{w}/sync", ws), owner))
+                .andExpect(jsonPath("$.lastStatus").value("PARTIAL"))
+                .andExpect(jsonPath("$.problems[0]").value(
+                        org.hamcrest.Matchers.containsString("NONSENSE")));
+    }
+
+    /** A clean run must not leave the previous run's problems lying around. */
+    @Test
+    void clearsTheProblemsWhenTheNextSyncIsClean() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        configure(owner, ws, "ARCHIVE");
+
+        source.files = List.of(new SourceFile("docs/odd.md", "---\ntype: NONSENSE\n---\nbody"));
+        mockMvc.perform(authed(post("/api/workspaces/{w}/sync/run", ws), owner))
+                .andExpect(jsonPath("$.problems.length()").value(1));
+
+        source.files = List.of(new SourceFile("docs/odd.md", "---\ntype: RUNBOOK\n---\nbody"));
+        mockMvc.perform(authed(post("/api/workspaces/{w}/sync/run", ws), owner))
+                .andExpect(jsonPath("$.lastStatus").value("OK"))
+                .andExpect(jsonPath("$.problems.length()").value(0));
+    }
+
     @Test
     void recordsEverySyncInTheWorkspaceActivityLog() throws Exception {
         TestUser owner = registerUser("owner@acme.test", "Owner");

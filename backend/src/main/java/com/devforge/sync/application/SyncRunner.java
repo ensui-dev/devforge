@@ -245,7 +245,8 @@ public class SyncRunner {
                     outcome.created(),
                     outcome.updated(),
                     outcome.archived(),
-                    outcome.unchanged());
+                    outcome.unchanged(),
+                    outcome.problems());
         }
 
         auditTrail.record(actorId, AuditEntry

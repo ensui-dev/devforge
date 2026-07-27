@@ -57,7 +57,7 @@ public class SyncService {
         workspaceAccess.requireAccess(workspaceId, userId, WorkspaceRole.ADMIN);
 
         return repository.findByWorkspaceId(workspaceId)
-                .map(configuration -> SyncSettingsResponse.from(configuration, List.of()))
+                .map(configuration -> SyncSettingsResponse.from(configuration))
                 .orElseGet(SyncSettingsResponse::notConfigured);
     }
 
@@ -105,7 +105,7 @@ public class SyncService {
                 .with("enabled", saved.isEnabled())
                 .with("firstTime", isNew));
 
-        return SyncSettingsResponse.from(saved, List.of());
+        return SyncSettingsResponse.from(saved);
     }
 
     /**
@@ -147,7 +147,7 @@ public class SyncService {
                 .inWorkspace(workspaceId)
                 .with("webhookUrlRotated", true));
 
-        return SyncSettingsResponse.from(configuration, List.of());
+        return SyncSettingsResponse.from(configuration);
     }
 
     @Transactional
@@ -171,8 +171,10 @@ public class SyncService {
         workspaceAccess.requireAccess(workspaceId, userId, WorkspaceRole.ADMIN);
         SyncConfiguration configuration = require(workspaceId);
 
-        SyncOutcome outcome = runner.run(configuration, userId);
-        return SyncSettingsResponse.from(configuration, outcome.problems());
+        runner.run(configuration, userId);
+        // Read back from the configuration rather than from the outcome: the two
+        // must agree, and a webhook-triggered sync only ever populates the former.
+        return SyncSettingsResponse.from(configuration);
     }
 
     /**
