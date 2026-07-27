@@ -41,6 +41,19 @@ describe('Markdown', () => {
     expect(screen.getByText('This document has no content yet.')).toBeInTheDocument()
   })
 
+  it('resolves the page count when the body is part of a site', () => {
+    render(<Markdown content="All {{handbook.pages}} pages." pages={31} />)
+
+    expect(screen.getByText('All 31 pages.')).toBeInTheDocument()
+  })
+
+  /** Read inside the app, a document is not part of a site and has no count. */
+  it('leaves the page count visible when there is none to resolve', () => {
+    render(<Markdown content="All {{handbook.pages}} pages." />)
+
+    expect(screen.getByText('All {{handbook.pages}} pages.')).toBeInTheDocument()
+  })
+
   /**
    * Document bodies are written by teammates and rendered as HTML, so this is the
    * test that keeps a document from becoming a stored-XSS vector.

@@ -55,4 +55,43 @@ describe('applyInstanceVariables', () => {
   it('handles empty content', () => {
     expect(applyInstanceVariables('', vars)).toBe('')
   })
+
+  describe('the page count', () => {
+    it('resolves to the size of the site the page is on', () => {
+      expect(applyInstanceVariables('All {{handbook.pages}} pages.', { ...vars, pages: 31 })).toBe(
+        'All 31 pages.',
+      )
+    })
+
+    /**
+     * The whole point: the sentence is right the day a page is added, without
+     * anyone remembering to go and change it.
+     */
+    it('follows the count rather than the prose', () => {
+      const sentence = 'a {{handbook.pages}}-page handbook'
+      expect(applyInstanceVariables(sentence, { ...vars, pages: 30 })).toBe('a 30-page handbook')
+      expect(applyInstanceVariables(sentence, { ...vars, pages: 31 })).toBe('a 31-page handbook')
+    })
+
+    it('resolves a count of zero rather than treating it as unknown', () => {
+      expect(applyInstanceVariables('{{handbook.pages}}', { ...vars, pages: 0 })).toBe('0')
+    })
+
+    /**
+     * A document read inside the app is not being read as part of a site, so
+     * there is no count. Showing the variable is honest; inventing a number is
+     * not, and blanking it would leave a sentence missing a word.
+     */
+    it('leaves the variable visible where no count is known', () => {
+      expect(applyInstanceVariables('All {{handbook.pages}} pages.', vars)).toBe(
+        'All {{handbook.pages}} pages.',
+      )
+    })
+
+    it('leaves an unknown namespace alone', () => {
+      expect(applyInstanceVariables('{{workspace.pages}}', { ...vars, pages: 5 })).toBe(
+        '{{workspace.pages}}',
+      )
+    })
+  })
 })

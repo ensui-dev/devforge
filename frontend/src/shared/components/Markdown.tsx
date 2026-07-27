@@ -13,7 +13,17 @@ import './Markdown.css'
  * strips anything executable before it reaches the DOM. Skipping the sanitiser
  * would make every document body a stored-XSS vector against the whole team.
  */
-export function Markdown({ content }: { content: string }) {
+interface MarkdownProps {
+  content: string
+  /**
+   * Pages in the documentation site this body is part of, when it is part of
+   * one. Passed in rather than fetched here: this component renders every
+   * document body in the product, and most of them are not on a site at all.
+   */
+  pages?: number
+}
+
+export function Markdown({ content, pages }: MarkdownProps) {
   // Read defensively rather than through `useInstance`: this component is the
   // single place every document body passes through, including in tests that
   // render it without the provider. Substitution is a nicety; failing to render
@@ -26,13 +36,14 @@ export function Markdown({ content }: { content: string }) {
       // paste into a terminal — not a value configured somewhere else.
       url: typeof window === 'undefined' ? '' : window.location.origin,
       name: instance?.instance.name ?? 'DevForge',
+      pages,
     })
     const parsed = marked.parse(resolved, { async: false, gfm: true, breaks: false })
     return DOMPurify.sanitize(parsed as string, {
       // target/rel are needed so external links open safely.
       ADD_ATTR: ['target', 'rel'],
     })
-  }, [content, instance?.instance.name])
+  }, [content, instance?.instance.name, pages])
 
   if (!content?.trim()) {
     return <p className="markdown__empty">This document has no content yet.</p>

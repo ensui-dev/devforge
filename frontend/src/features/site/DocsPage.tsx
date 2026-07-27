@@ -278,7 +278,9 @@ export function DocsPage() {
                 <p className="docs-head__meta">Updated {formatRelative(page.data.updatedAt)}</p>
               </header>
 
-              <Markdown content={page.data.content} />
+              {/* The site's own size, so a page can say how big it is without
+                  the sentence going stale the next time one is added. */}
+              <Markdown content={page.data.content} pages={contents.data.entries.length} />
 
               {page.data.references.length > 0 ? (
                 <aside className="connections" aria-label="Connections">
