@@ -19,6 +19,13 @@ WORKDIR /app
 
 # Run unprivileged: nothing in the service needs root.
 RUN addgroup -S devforge && adduser -S devforge -G devforge
+
+# Hosted git repositories. Created here so the default path exists and is owned
+# by the service; a deployment that mounts a volume over it must give the
+# directory to the same uid, or the first push fails on a permission the logs
+# will attribute to git rather than to the mount.
+RUN mkdir -p /var/lib/devforge/git && chown -R devforge:devforge /var/lib/devforge
+
 USER devforge
 
 COPY --from=build /build/target/*.jar app.jar
