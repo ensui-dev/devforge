@@ -102,6 +102,31 @@ export interface DocumentReference {
   relatedDocumentSlug: string | null
   relatedDocumentType: DocumentType | null
   createdAt: string
+  /**
+   * Whether the two ends have fallen out of step, and which way round.
+   *
+   * On an outgoing link: the page this one points at has changed since this one
+   * was last revised, so what is written here may no longer be true. On a
+   * backlink: the reverse — this page changed and the page depending on it has
+   * not been touched since.
+   */
+  behind: boolean
+  /** When the far end last actually changed. Null if it never has. */
+  relatedChangedAt: string | null
+}
+
+/** What a linked page changed since the page pointing at it last kept up. */
+export interface ReferenceChanges {
+  relatedDocumentTitle: string
+  relatedDocumentSlug: string
+  /** The moment compared from: when the depending page was last revised. */
+  since: string
+  /** Null when the linked page did not exist yet. */
+  beforeRevision: number | null
+  before: string | null
+  afterRevision: number
+  after: string
+  afterChangedAt: string
 }
 
 export interface TaskAssignee {

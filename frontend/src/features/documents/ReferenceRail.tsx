@@ -9,6 +9,8 @@ import {
   REFERENCE_TYPE_LABELS,
   type DocumentReference,
 } from '../../shared/types'
+import { formatRelative } from '../../shared/utils/slugify'
+import { ReferenceChangesDialog } from './ReferenceChangesDialog'
 import { useRemoveReference } from './useDocuments'
 import './ReferenceRail.css'
 
@@ -38,6 +40,7 @@ export function ReferenceRail({
   const removeReference = useRemoveReference(workspaceId, documentId)
   const { notify, notifyError } = useToast()
   const [removingId, setRemovingId] = useState<string | null>(null)
+  const [changesFor, setChangesFor] = useState<DocumentReference | null>(null)
 
   const outgoing = references.filter((reference) => reference.outgoing)
   const incoming = references.filter((reference) => !reference.outgoing)
@@ -88,6 +91,23 @@ export function ReferenceRail({
                     {DOCUMENT_TYPE_LABELS[reference.relatedDocumentType]}
                   </span>
                 ) : null}
+                {/* The point of the marker is that it is a way in, not a badge:
+                    "something moved" is only useful next to "here is what". */}
+                {reference.behind ? (
+                  <button
+                    type="button"
+                    className="edge__behind"
+                    onClick={() => setChangesFor(reference)}
+                  >
+                    {outgoingGroup ? 'Changed since this page' : 'Not updated since this page'}
+                    {reference.relatedChangedAt ? (
+                      <span className="edge__behind-when">
+                        {' · '}
+                        {formatRelative(reference.relatedChangedAt)}
+                      </span>
+                    ) : null}
+                  </button>
+                ) : null}
               </div>
               {/* Only the declaring document can remove an edge, so backlinks show
                   no control — matching what the API allows. */}
@@ -122,6 +142,17 @@ export function ReferenceRail({
 
       {renderGroup('This document', outgoing, true, 'No outgoing links yet.')}
       {renderGroup('Referenced by', incoming, false, 'Nothing points here yet.')}
+
+      {/* Mounted only while open, so each opening fetches what is current rather
+          than showing what was true when the page loaded. */}
+      {changesFor ? (
+        <ReferenceChangesDialog
+          workspaceId={workspaceId}
+          documentId={documentId}
+          reference={changesFor}
+          onClose={() => setChangesFor(null)}
+        />
+      ) : null}
     </aside>
   )
 }

@@ -30,6 +30,7 @@ import type {
   Publication,
   PublicDocument,
   PublishedWorkspace,
+  ReferenceChanges,
   ReferenceType,
   RegisterPayload,
   SetupPayload,
@@ -139,6 +140,11 @@ export const documentApi = {
     apiRequest<DocumentReference>(
       `/api/workspaces/${workspaceId}/documents/${documentId}/references`,
       { method: 'POST', ...json({ targetDocumentId, referenceType }) },
+    ),
+  /** What the linked page changed since this one last kept up with it. */
+  referenceChanges: (workspaceId: string, documentId: string, referenceId: string) =>
+    apiRequest<ReferenceChanges>(
+      `/api/workspaces/${workspaceId}/documents/${documentId}/references/${referenceId}/changes`,
     ),
   removeReference: (workspaceId: string, documentId: string, referenceId: string) =>
     apiRequest<void>(

@@ -136,3 +136,31 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/*
+ * The out-of-step marker. Styled as a control rather than a badge because it is
+ * one — it opens the comparison. Warm rather than red: a page whose dependency
+ * moved is not broken, it is worth a look.
+ */
+.edge__behind {
+  justify-self: start;
+  margin-top: var(--space-1);
+  padding: 2px var(--space-2);
+  border: 1px solid color-mix(in srgb, var(--signal) 40%, transparent);
+  border-radius: var(--radius-sm);
+  background: var(--signal-wash);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+}
+
+.edge__behind:hover {
+  border-color: var(--signal);
+}
+
+.edge__behind-when {
+  color: var(--ink-muted);
+}

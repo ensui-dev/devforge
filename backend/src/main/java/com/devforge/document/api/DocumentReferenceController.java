@@ -3,6 +3,7 @@ package com.devforge.document.api;
 import com.devforge.document.application.CreateDocumentReferenceRequest;
 import com.devforge.document.application.DocumentReferenceResponse;
 import com.devforge.document.application.DocumentReferenceService;
+import com.devforge.document.application.ReferenceChangesResponse;
 import com.devforge.shared.security.CurrentUser;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -39,6 +40,17 @@ public class DocumentReferenceController {
             @CurrentUser UUID userId
     ) {
         return referenceService.findReferences(workspaceId, documentId, userId);
+    }
+
+    @GetMapping("/{referenceId}/changes")
+    @Operation(summary = "What the linked document changed since this one last kept up")
+    public ReferenceChangesResponse changes(
+            @PathVariable UUID workspaceId,
+            @PathVariable UUID documentId,
+            @PathVariable UUID referenceId,
+            @CurrentUser UUID userId
+    ) {
+        return referenceService.findChanges(workspaceId, documentId, referenceId, userId);
     }
 
     @PostMapping

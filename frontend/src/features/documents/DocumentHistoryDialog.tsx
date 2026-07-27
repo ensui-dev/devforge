@@ -9,6 +9,7 @@ import { Modal } from '../../shared/components/Modal'
 import { describeError } from '../../shared/components/describeError'
 import { useToast } from '../../shared/components/useToast'
 import { formatRelative } from '../../shared/utils/slugify'
+import { DiffView } from '../../shared/components/DiffView'
 import { diffLines } from '../../shared/utils/diffLines'
 import type { DocumentRevision } from '../../shared/types'
 import './DocumentHistoryDialog.css'
@@ -163,23 +164,12 @@ export function DocumentHistoryDialog({
                   ) : null}
                 </div>
 
-                {diff && !diff.stats.unchanged ? (
-                  <div className="diff" role="group" aria-label={`Changes since revision ${selected}`}>
-                    {diff.lines.map((line, index) => (
-                      <div className={`diff__line diff__line--${line.kind}`} key={index}>
-                        <span className="diff__gutter" aria-hidden="true">
-                          {line.before ?? ''}
-                        </span>
-                        <span className="diff__gutter" aria-hidden="true">
-                          {line.after ?? ''}
-                        </span>
-                        <span className="diff__marker" aria-hidden="true">
-                          {line.kind === 'added' ? '+' : line.kind === 'removed' ? '−' : ' '}
-                        </span>
-                        <span className="diff__text">{line.text || ' '}</span>
-                      </div>
-                    ))}
-                  </div>
+                {revision.data?.content != null ? (
+                  <DiffView
+                    before={revision.data.content}
+                    after={currentContent}
+                    label={`Changes since revision ${selected}`}
+                  />
                 ) : null}
               </>
             )}

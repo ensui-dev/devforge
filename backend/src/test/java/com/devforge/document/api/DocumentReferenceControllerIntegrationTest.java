@@ -160,6 +160,148 @@ class DocumentReferenceControllerIntegrationTest extends AbstractIntegrationTest
                 .andExpect(jsonPath("$.length()").value(0));
     }
 
+    // ------------------------------------------------------- falling out of step
+
+    /** Edits a document, which is what moves its "last changed" forward. */
+    private void edit(TestUser user, UUID workspaceId, UUID documentId, String content)
+            throws Exception {
+        mockMvc.perform(authed(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .put("/api/workspaces/{w}/documents/{d}", workspaceId, documentId), user)
+                        .content("""
+                                {"title":"Edited","slug":"%s","content":"%s","documentType":"GENERAL"}"""
+                                .formatted("s" + documentId.toString().substring(0, 8), content)))
+                .andExpect(status().isOk());
+    }
+
+    /**
+     * The question the graph exists to answer, asked from the page that has to act
+     * on it: something this page depends on has moved since anyone looked at this
+     * one.
+     */
+    @Test
+    void marksAnOutgoingLinkWhoseTargetHasChangedSince() throws Exception {
+        TestUser user = registerUser();
+        UUID workspaceId = createWorkspace(user, "Platform", "platform");
+        UUID design = createDocument(user, workspaceId, "Design", "design", "original", "ARCHITECTURE");
+        UUID runbook = createDocument(user, workspaceId, "Runbook", "runbook", "steps", "RUNBOOK");
+        mockMvc.perform(authed(references(workspaceId, runbook), user).content(dependsOn(design)))
+                .andExpect(status().isCreated());
+
+        // Nothing has moved yet.
+        mockMvc.perform(authed(get(referencesPath(), workspaceId, runbook), user))
+                .andExpect(jsonPath("$[0].behind").value(false));
+
+        edit(user, workspaceId, design, "the design changed");
+
+        mockMvc.perform(authed(get(referencesPath(), workspaceId, runbook), user))
+                .andExpect(jsonPath("$[0].outgoing").value(true))
+                .andExpect(jsonPath("$[0].behind").value(true))
+                .andExpect(jsonPath("$[0].relatedChangedAt").isNotEmpty());
+    }
+
+    /** The same fact from the other end: what depends on this has not caught up. */
+    @Test
+    void marksABacklinkThatHasNotCaughtUp() throws Exception {
+        TestUser user = registerUser();
+        UUID workspaceId = createWorkspace(user, "Platform", "platform");
+        UUID design = createDocument(user, workspaceId, "Design", "design", "original", "ARCHITECTURE");
+        UUID runbook = createDocument(user, workspaceId, "Runbook", "runbook", "steps", "RUNBOOK");
+        mockMvc.perform(authed(references(workspaceId, runbook), user).content(dependsOn(design)))
+                .andExpect(status().isCreated());
+
+        edit(user, workspaceId, design, "the design changed");
+
+        mockMvc.perform(authed(get(referencesPath(), workspaceId, design), user))
+                .andExpect(jsonPath("$[0].outgoing").value(false))
+                .andExpect(jsonPath("$[0].behind").value(true));
+    }
+
+    /** Editing the page is what says "I have taken that into account". */
+    @Test
+    void editingThePageClearsTheMark() throws Exception {
+        TestUser user = registerUser();
+        UUID workspaceId = createWorkspace(user, "Platform", "platform");
+        UUID design = createDocument(user, workspaceId, "Design", "design", "original", "ARCHITECTURE");
+        UUID runbook = createDocument(user, workspaceId, "Runbook", "runbook", "steps", "RUNBOOK");
+        mockMvc.perform(authed(references(workspaceId, runbook), user).content(dependsOn(design)))
+                .andExpect(status().isCreated());
+
+        edit(user, workspaceId, design, "the design changed");
+        edit(user, workspaceId, runbook, "steps, updated for the new design");
+
+        mockMvc.perform(authed(get(referencesPath(), workspaceId, runbook), user))
+                .andExpect(jsonPath("$[0].behind").value(false));
+    }
+
+    /**
+     * A fresh workspace must not light up. Two pages written together are in step
+     * with each other, and marking everything on the first day teaches people to
+     * ignore the marker.
+     */
+    @Test
+    void doesNotMarkPagesThatHaveNeverDiverged() throws Exception {
+        TestUser user = registerUser();
+        UUID workspaceId = createWorkspace(user, "Platform", "platform");
+        UUID design = createDocument(user, workspaceId, "Design", "design", "a", "ARCHITECTURE");
+        UUID runbook = createDocument(user, workspaceId, "Runbook", "runbook", "b", "RUNBOOK");
+        mockMvc.perform(authed(references(workspaceId, runbook), user).content(dependsOn(design)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(authed(get(referencesPath(), workspaceId, runbook), user))
+                .andExpect(jsonPath("$[0].behind").value(false));
+        mockMvc.perform(authed(get(referencesPath(), workspaceId, design), user))
+                .andExpect(jsonPath("$[0].behind").value(false));
+    }
+
+    // --------------------------------------------------------- what changed
+
+    @Test
+    void showsWhatTheLinkedPageChanged() throws Exception {
+        TestUser user = registerUser();
+        UUID workspaceId = createWorkspace(user, "Platform", "platform");
+        UUID design = createDocument(user, workspaceId, "Design", "design", "original", "ARCHITECTURE");
+        UUID runbook = createDocument(user, workspaceId, "Runbook", "runbook", "steps", "RUNBOOK");
+        String created = mockMvc.perform(
+                        authed(references(workspaceId, runbook), user).content(dependsOn(design)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        UUID referenceId = UUID.fromString(objectMapper.readTree(created).get("id").asText());
+
+        edit(user, workspaceId, design, "the design changed");
+
+        mockMvc.perform(authed(get(referencesPath() + "/{referenceId}/changes",
+                        workspaceId, runbook, referenceId), user))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.relatedDocumentTitle").value("Edited"))
+                // What it said when the runbook was last written, and what it says now.
+                .andExpect(jsonPath("$.before").value("original"))
+                .andExpect(jsonPath("$.after").value("the design changed"))
+                .andExpect(jsonPath("$.beforeRevision").value(1))
+                .andExpect(jsonPath("$.afterRevision").value(2))
+                .andExpect(jsonPath("$.since").isNotEmpty());
+    }
+
+    /**
+     * An edge id is not a capability. Without the check, any edge could be used to
+     * read the pair of documents it joins from any document the caller can open.
+     */
+    @Test
+    void refusesAnEdgeThatDoesNotTouchThisDocument() throws Exception {
+        TestUser user = registerUser();
+        UUID workspaceId = createWorkspace(user, "Platform", "platform");
+        UUID a = createDocument(user, workspaceId, "A", "a", "", "GENERAL");
+        UUID b = createDocument(user, workspaceId, "B", "b", "", "GENERAL");
+        UUID bystander = createDocument(user, workspaceId, "Bystander", "bystander", "", "GENERAL");
+        String created = mockMvc.perform(authed(references(workspaceId, a), user).content(dependsOn(b)))
+                .andReturn().getResponse().getContentAsString();
+        UUID referenceId = UUID.fromString(objectMapper.readTree(created).get("id").asText());
+
+        mockMvc.perform(authed(get(referencesPath() + "/{referenceId}/changes",
+                        workspaceId, bystander, referenceId), user))
+                .andExpect(status().isNotFound());
+    }
+
     private static String referencesPath() {
         return "/api/workspaces/{workspaceId}/documents/{documentId}/references";
     }

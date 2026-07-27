@@ -2,6 +2,7 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { renderWithProviders } from '../../test/renderWithProviders'
+import * as endpoints from '../../shared/api/endpoints'
 import type { DocumentReference } from '../../shared/types'
 import { ReferenceRail } from './ReferenceRail'
 
@@ -14,6 +15,8 @@ const outgoing: DocumentReference = {
   relatedDocumentSlug: 'kafka-topic-conventions',
   relatedDocumentType: 'TECHNOLOGY',
   createdAt: '2026-01-01T00:00:00Z',
+  behind: false,
+  relatedChangedAt: null,
 }
 
 const backlink: DocumentReference = {
@@ -25,6 +28,8 @@ const backlink: DocumentReference = {
   relatedDocumentSlug: 'order-service-design',
   relatedDocumentType: 'ARCHITECTURE',
   createdAt: '2026-01-02T00:00:00Z',
+  behind: false,
+  relatedChangedAt: null,
 }
 
 function renderRail(references: DocumentReference[], canWrite = true) {
@@ -114,5 +119,70 @@ describe('ReferenceRail', () => {
     renderRail([{ ...outgoing, relatedDocumentTitle: null, relatedDocumentType: null }])
 
     expect(screen.getByRole('link', { name: 'Untitled document' })).toBeInTheDocument()
+  })
+
+  /**
+   * The question the graph exists to answer, surfaced where somebody acting on it
+   * is already looking rather than in a report they would have to go and read.
+   */
+  it('marks an outgoing link whose target moved on', () => {
+    renderRail([{ ...outgoing, behind: true, relatedChangedAt: '2026-02-01T00:00:00Z' }])
+
+    expect(screen.getByRole('button', { name: /Changed since this page/ })).toBeInTheDocument()
+  })
+
+  /** The same fact from the other end reads as the opposite sentence. */
+  it('marks a backlink that has not caught up', () => {
+    renderRail([{ ...backlink, behind: true, relatedChangedAt: '2026-02-01T00:00:00Z' }])
+
+    expect(
+      screen.getByRole('button', { name: /Not updated since this page/ }),
+    ).toBeInTheDocument()
+  })
+
+  it('says nothing when the two ends are in step', () => {
+    renderRail([outgoing, backlink])
+
+    expect(screen.queryByRole('button', { name: /Changed since/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Not updated since/ })).not.toBeInTheDocument()
+  })
+
+  /** A marker that only says "something moved" would send you looking for what. */
+  it('opens the comparison from the marker', async () => {
+    vi.spyOn(endpoints.documentApi, 'referenceChanges').mockResolvedValue({
+      relatedDocumentTitle: 'Kafka topic conventions',
+      relatedDocumentSlug: 'kafka-topic-conventions',
+      since: '2026-01-01T00:00:00Z',
+      beforeRevision: 1,
+      before: 'one partition',
+      afterRevision: 2,
+      after: 'three partitions',
+      afterChangedAt: '2026-02-01T00:00:00Z',
+    })
+
+    renderRail([{ ...outgoing, behind: true, relatedChangedAt: '2026-02-01T00:00:00Z' }])
+    await userEvent.click(screen.getByRole('button', { name: /Changed since this page/ }))
+
+    expect(await screen.findByText(/three partitions/)).toBeInTheDocument()
+    expect(screen.getByText(/one partition/)).toBeInTheDocument()
+    expect(screen.getByText('Revision 1 → 2.')).toBeInTheDocument()
+  })
+
+  it('says so when the linked page did not exist yet', async () => {
+    vi.spyOn(endpoints.documentApi, 'referenceChanges').mockResolvedValue({
+      relatedDocumentTitle: 'Kafka topic conventions',
+      relatedDocumentSlug: 'kafka-topic-conventions',
+      since: '2026-01-01T00:00:00Z',
+      beforeRevision: null,
+      before: null,
+      afterRevision: 1,
+      after: 'everything here is new',
+      afterChangedAt: '2026-02-01T00:00:00Z',
+    })
+
+    renderRail([{ ...outgoing, behind: true, relatedChangedAt: '2026-02-01T00:00:00Z' }])
+    await userEvent.click(screen.getByRole('button', { name: /Changed since this page/ }))
+
+    expect(await screen.findByText(/did not exist yet/)).toBeInTheDocument()
   })
 })

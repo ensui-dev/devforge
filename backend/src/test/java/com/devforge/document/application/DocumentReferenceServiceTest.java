@@ -6,6 +6,7 @@ import com.devforge.document.contract.ReferenceType;
 import com.devforge.document.domain.Document;
 import com.devforge.document.domain.DocumentReference;
 import com.devforge.document.domain.DocumentReferenceRepository;
+import com.devforge.document.domain.DocumentRevisionRepository;
 import com.devforge.document.domain.DocumentRepository;
 import com.devforge.shared.exception.DomainValidationException;
 import com.devforge.shared.exception.DuplicateResourceException;
@@ -39,6 +40,12 @@ class DocumentReferenceServiceTest {
 
     @Mock
     private DocumentReferenceRepository referenceRepository;
+
+    @Mock
+    private DocumentRevisionRepository revisionRepository;
+
+    @Mock
+    private DocumentHistoryService history;
 
     @Mock
     private WorkspaceAccess workspaceAccess;

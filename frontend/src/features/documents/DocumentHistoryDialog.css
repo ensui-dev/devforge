@@ -1,10 +1,7 @@
 /*
  * History: revisions down the left, the diff against now on the right.
  *
- * The diff is set in mono with two gutters, one line number per side, which is how
- * a reviewer expects to read one. Colour is not the only signal — every changed
- * line also carries + or −, so the diff survives being printed, being read by
- * someone colour-blind, or the accent being rebranded to something unlucky.
+ * The diff itself is styled by DiffView, which two screens share.
  */
 
 .history {
@@ -127,57 +124,6 @@
 .history__removed {
   color: var(--danger);
   font-weight: 600;
-}
-
-.diff {
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
-  background: var(--paper-raised);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: 1.7;
-  /* Long lines scroll here rather than widening the dialog. */
-  overflow-x: auto;
-}
-
-.diff__line {
-  display: grid;
-  grid-template-columns: 3ch 3ch 2ch minmax(0, 1fr);
-  gap: var(--space-2);
-  padding: 0 var(--space-3);
-  white-space: pre;
-}
-
-.diff__gutter {
-  color: var(--ink-faint);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  user-select: none;
-}
-
-.diff__marker {
-  user-select: none;
-  font-weight: 600;
-}
-
-.diff__line--added {
-  background: var(--success-wash);
-}
-
-.diff__line--added .diff__marker {
-  color: var(--success);
-}
-
-.diff__line--removed {
-  background: var(--danger-wash);
-}
-
-.diff__line--removed .diff__marker {
-  color: var(--danger);
-}
-
-.diff__text {
-  min-width: 0;
 }
 
 @media (max-width: 48rem) {

@@ -203,11 +203,15 @@ public class DocumentHistoryService {
     /**
      * The body a revision points at.
      *
+     * <p>Package-private rather than private: showing what a linked page changed
+     * needs the same lookup, and duplicating it there would be a second place for
+     * the composite key to be got wrong.
+     *
      * <p>The composite foreign key guarantees it exists, so an absent row means the
      * schema has been tampered with rather than that the caller asked for something
      * reasonable.
      */
-    private String bodyOf(DocumentRevision revision) {
+    String bodyOf(DocumentRevision revision) {
         return contentRepository
                 .findByDocumentIdAndContentHash(revision.getDocumentId(), revision.getContentHash())
                 .map(DocumentContent::getBody)

@@ -66,4 +66,15 @@ public class DocumentReference extends BaseEntity {
     public boolean isOutgoingFrom(UUID documentId) {
         return sourceDocumentId.equals(documentId);
     }
+
+    /**
+     * Whether this edge has the document at either end.
+     *
+     * <p>Checked before answering a question about an edge that arrived as an id:
+     * without it, any edge id would read the pair of documents it joins, from any
+     * document the caller could open.
+     */
+    public boolean touches(UUID documentId) {
+        return sourceDocumentId.equals(documentId) || targetDocumentId.equals(documentId);
+    }
 }

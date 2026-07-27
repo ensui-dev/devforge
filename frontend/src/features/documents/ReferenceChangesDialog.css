@@ -1,0 +1,33 @@
+@import '../../styles/utilities.css';
+
+/*
+ * Sentence first, diff second. The reader arrived here from a marker and needs
+ * to know what it meant before being shown lines.
+ */
+
+.ref-changes {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.ref-changes__lead {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.ref-changes__lead strong {
+  color: var(--ink);
+}
+
+.ref-changes__note {
+  padding: var(--space-3);
+  border-left: 2px solid var(--rule-strong);
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
+.ref-changes__revisions {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
