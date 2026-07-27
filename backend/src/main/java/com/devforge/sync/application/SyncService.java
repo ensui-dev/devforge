@@ -205,13 +205,38 @@ public class SyncService {
     /**
      * Runs a sync in response to a verified webhook.
      *
+     * <p>Takes the id and loads the configuration again rather than accepting the
+     * one {@link #findForWebhook} handed the controller. That instance came from a
+     * different transaction and is detached, so everything a run records on it — the
+     * status, the message, the commit, the problems — would be written to an object
+     * JPA is no longer tracking and silently dropped. The documents were still
+     * applied, which is what made it hard to notice: the sync worked, and the
+     * settings screen said it had never run.
+     *
      * <p>No workspace permission is checked, and none could be: a git host has no
      * DevForge account. The signature is what authorises the call, which is why
      * {@link #findForWebhook} refuses to hand back a configuration without one.
      */
     @Transactional
-    public SyncOutcome syncFromWebhook(SyncConfiguration configuration) {
-        return runner.run(configuration, null);
+    public SyncOutcome syncFromWebhook(UUID webhookId, byte[] payload) {
+        SyncConfiguration configuration = repository.findByWebhookId(webhookId)
+                .filter(SyncConfiguration::isEnabled)
+                .orElseThrow(() -> new ResourceNotFoundException("Sync configuration", webhookId));
+
+        Optional<PushEvent> push = PushEvent.parse(payload);
+
+        // A push to another branch is not this workspace's business. Without this
+        // check any branch would trigger a sync of the configured one, so pushing a
+        // draft would apply main — work nobody asked for, attributed to a push that
+        // did not contain it.
+        if (push.isPresent() && !push.get().movedBranch(configuration.getBranch())) {
+            return SyncOutcome.ignored(
+                    "Ignored a push to %s; this workspace follows %s."
+                            .formatted(push.get().branchName(), configuration.getBranch()));
+        }
+
+        // The commit, not the branch. See PushEvent for why the difference matters.
+        return runner.run(configuration, null, push.map(PushEvent::commitId).orElse(null));
     }
 
     /**

@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -58,13 +59,17 @@ class GitSyncIntegrationTest extends AbstractIntegrationTest {
         List<SourceFile> files = new ArrayList<>();
         String ref = "abc1234";
         RuntimeException failure;
+        /** What the caller asked to read, so a test can assert on it. */
+        String requestedRevision;
 
         @Override
-        public SourceSnapshot fetch(SyncConfiguration configuration, String accessToken) {
+        public SourceSnapshot fetch(
+                SyncConfiguration configuration, String accessToken, String revision) {
+            this.requestedRevision = revision;
             if (failure != null) {
                 throw failure;
             }
-            return new SourceSnapshot(ref, List.copyOf(files));
+            return new SourceSnapshot(revision == null ? ref : revision, List.copyOf(files));
         }
     }
 
@@ -455,6 +460,111 @@ class GitSyncIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(authed(get("/api/workspaces/{w}/documents/by-slug/{s}", ws, "pushed"), owner))
                 .andExpect(status().isOk());
+    }
+
+    /** A signed delivery, as a git host sends one. */
+    private org.springframework.test.web.servlet.ResultActions deliver(
+            UUID webhookId, String secret, String payload) throws Exception {
+        return mockMvc.perform(post("/api/public/sync/{id}", webhookId)
+                .contentType("application/json")
+                .header("X-Hub-Signature-256",
+                        "sha256=" + WebhookSignature.hex(payload.getBytes(), secret))
+                .content(payload));
+    }
+
+    /**
+     * The defect this exists to prevent: a host serves the branch archive from a
+     * cache, and a webhook arrives the instant the push lands. Reading the branch
+     * can return the tree from before the push that triggered it, leaving the
+     * workspace one commit behind and looking healthy — because every push applies
+     * the previous one. Naming the commit is immune to that.
+     */
+    @Test
+    void readsTheCommitTheDeliveryNamedRatherThanTheBranch() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        configure(owner, ws, "ARCHIVE");
+        String secret = generateSecret(owner, ws);
+        UUID webhookId = webhookIdOf(owner, ws);
+
+        source.files = List.of(new SourceFile("docs/pushed.md", "# Pushed"));
+
+        deliver(webhookId, secret,
+                "{\"ref\":\"refs/heads/main\",\"after\":\"9f8e7d6c5b4a3f2e1d0c\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.created").value(1));
+
+        assertThat(source.requestedRevision).isEqualTo("9f8e7d6c5b4a3f2e1d0c");
+    }
+
+    /** And the commit is what history says the change came from. */
+    @Test
+    void recordsTheCommitAgainstTheSync() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        configure(owner, ws, "ARCHIVE");
+        String secret = generateSecret(owner, ws);
+        UUID webhookId = webhookIdOf(owner, ws);
+
+        source.files = List.of(new SourceFile("docs/pushed.md", "# Pushed"));
+        deliver(webhookId, secret, "{\"ref\":\"refs/heads/main\",\"after\":\"deadbeef\"}");
+
+        // The whole record, not just the commit. A webhook sync used to apply its
+        // documents and record none of this, because the configuration it wrote to
+        // had come from another transaction and was no longer being tracked — so the
+        // sync worked and the settings screen said it had never run.
+        mockMvc.perform(authed(get("/api/workspaces/{w}/sync", ws), owner))
+                .andExpect(jsonPath("$.lastRef").value("deadbeef"))
+                .andExpect(jsonPath("$.lastStatus").value("OK"))
+                .andExpect(jsonPath("$.lastAttemptedAt").isNotEmpty())
+                .andExpect(jsonPath("$.lastCreated").value(1));
+    }
+
+    /**
+     * A repository is a working space. Without this, pushing a draft branch would
+     * sync the configured one — work nobody asked for, attributed to a push that
+     * did not contain it.
+     */
+    @Test
+    void ignoresAPushToABranchTheWorkspaceDoesNotFollow() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        configure(owner, ws, "ARCHIVE");
+        String secret = generateSecret(owner, ws);
+        UUID webhookId = webhookIdOf(owner, ws);
+
+        source.files = List.of(new SourceFile("docs/pushed.md", "# Pushed"));
+
+        deliver(webhookId, secret,
+                "{\"ref\":\"refs/heads/draft\",\"after\":\"abc123\"}")
+                .andExpect(status().isOk())
+                // Not a failure: the delivery worked exactly as intended, and a red
+                // status here would be a repository with nothing wrong with it.
+                .andExpect(jsonPath("$.status").value("OK"))
+                .andExpect(jsonPath("$.created").value(0))
+                .andExpect(jsonPath("$.message").value(
+                        org.hamcrest.Matchers.containsString("Ignored a push to draft")));
+
+        mockMvc.perform(authed(get("/api/workspaces/{w}/documents/by-slug/{s}", ws, "pushed"), owner))
+                .andExpect(status().isNotFound());
+    }
+
+    /** A ping, or a host that sends something else: sync the branch, as before. */
+    @Test
+    void fallsBackToTheBranchWhenTheDeliveryNamesNoCommit() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        configure(owner, ws, "ARCHIVE");
+        String secret = generateSecret(owner, ws);
+        UUID webhookId = webhookIdOf(owner, ws);
+
+        source.files = List.of(new SourceFile("docs/pushed.md", "# Pushed"));
+
+        deliver(webhookId, secret, "{\"zen\":\"Design for failure.\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.created").value(1));
+
+        assertThat(source.requestedRevision).isNull();
     }
 
     /** The security boundary of the whole feature. */

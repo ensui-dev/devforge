@@ -160,7 +160,7 @@ public class SyncController {
             return ResponseEntity.notFound().build();
         }
 
-        SyncOutcome outcome = syncService.syncFromWebhook(webhook.configuration());
+        SyncOutcome outcome = syncService.syncFromWebhook(webhookId, payload);
 
         // 200 even for a failed sync: the delivery was accepted and understood, and a
         // git host retrying because DevForge could not reach the repository would not

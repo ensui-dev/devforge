@@ -17,8 +17,12 @@ public interface DocumentSource {
 
     /**
      * @param accessToken decrypted, or null for a public repository
+     * @param revision    the exact revision to read, or null for the configured
+     *                    branch. A webhook names the commit it just delivered,
+     *                    which a branch name cannot be relied on to resolve to —
+     *                    see {@link PushEvent}.
      * @throws SourceUnavailableException when the repository cannot be read; the
      *         message is shown to the operator, so it must say something useful
      */
-    SourceSnapshot fetch(SyncConfiguration configuration, String accessToken);
+    SourceSnapshot fetch(SyncConfiguration configuration, String accessToken, String revision);
 }

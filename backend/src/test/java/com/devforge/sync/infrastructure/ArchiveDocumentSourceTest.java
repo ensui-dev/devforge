@@ -99,7 +99,7 @@ class ArchiveDocumentSourceTest {
                 "repo-main/docs/design.md", "# Design",
                 "repo-main/docs/runbook.md", "# Runbook")));
 
-        SourceSnapshot snapshot = source.fetch(configuration("main"), null);
+        SourceSnapshot snapshot = source.fetch(configuration("main"), null, null);
 
         assertThat(snapshot.files()).extracting(SourceFile::path)
                 .containsExactlyInAnyOrder("docs/design.md", "docs/runbook.md");
@@ -114,7 +114,7 @@ class ArchiveDocumentSourceTest {
                 "repo-main/docs/logo.png", "not really a png",
                 "repo-main/pom.xml", "<project/>")));
 
-        assertThat(source.fetch(configuration("main"), null).files())
+        assertThat(source.fetch(configuration("main"), null, null).files())
                 .extracting(SourceFile::path)
                 .containsExactly("docs/design.md");
     }
@@ -123,7 +123,7 @@ class ArchiveDocumentSourceTest {
     void requestsTheArchiveForTheConfiguredBranch() throws IOException {
         body = zip(Map.of("repo-x/docs/a.md", "# A"));
 
-        source.fetch(configuration("release/2.0"), null);
+        source.fetch(configuration("release/2.0"), null, null);
 
         // The path is what a git host expects; the branch is not mangled.
         assertThat(receivedHeaders.get()).containsKey("user-agent");
@@ -133,7 +133,7 @@ class ArchiveDocumentSourceTest {
     void sendsTheAccessTokenWhenThereIsOne() throws IOException {
         body = zip(Map.of("repo-main/docs/a.md", "# A"));
 
-        source.fetch(configuration("main"), "secret-token");
+        source.fetch(configuration("main"), "secret-token", null);
 
         assertThat(receivedHeaders.get().get("authorization")).isEqualTo("Bearer secret-token");
         // GitLab wants its own header; hosts ignore what they do not recognise.
@@ -144,7 +144,7 @@ class ArchiveDocumentSourceTest {
     void sendsNoAuthorizationForAPublicRepository() throws IOException {
         body = zip(Map.of("repo-main/docs/a.md", "# A"));
 
-        source.fetch(configuration("main"), null);
+        source.fetch(configuration("main"), null, null);
 
         assertThat(receivedHeaders.get()).doesNotContainKey("authorization");
     }
@@ -154,7 +154,7 @@ class ArchiveDocumentSourceTest {
     void explainsAMissingRepositoryOrBranch() {
         status = 404;
 
-        assertThatThrownBy(() -> source.fetch(configuration("nonexistent"), null))
+        assertThatThrownBy(() -> source.fetch(configuration("nonexistent"), null, null))
                 .isInstanceOf(SourceUnavailableException.class)
                 .hasMessageContaining("nonexistent");
     }
@@ -163,11 +163,11 @@ class ArchiveDocumentSourceTest {
     void distinguishesAPrivateRepositoryFromARefusedToken() {
         status = 403;
 
-        assertThatThrownBy(() -> source.fetch(configuration("main"), null))
+        assertThatThrownBy(() -> source.fetch(configuration("main"), null, null))
                 .hasMessageContaining("private")
                 .hasMessageContaining("access token");
 
-        assertThatThrownBy(() -> source.fetch(configuration("main"), "bad-token"))
+        assertThatThrownBy(() -> source.fetch(configuration("main"), "bad-token", null))
                 .hasMessageContaining("refused");
     }
 
@@ -175,7 +175,7 @@ class ArchiveDocumentSourceTest {
     void reportsAnUnexpectedStatus() {
         status = 500;
 
-        assertThatThrownBy(() -> source.fetch(configuration("main"), null))
+        assertThatThrownBy(() -> source.fetch(configuration("main"), null, null))
                 .hasMessageContaining("500");
     }
 
@@ -183,7 +183,7 @@ class ArchiveDocumentSourceTest {
     void reportsAResponseThatIsNotAZip() {
         body = "<html>not a zip</html>".getBytes(StandardCharsets.UTF_8);
 
-        assertThatThrownBy(() -> source.fetch(configuration("main"), null))
+        assertThatThrownBy(() -> source.fetch(configuration("main"), null, null))
                 .isInstanceOf(SourceUnavailableException.class)
                 .hasMessageContaining("did not return a zip");
     }
@@ -196,14 +196,14 @@ class ArchiveDocumentSourceTest {
                 com.devforge.document.contract.DocumentType.GENERAL,
                 com.devforge.sync.domain.DeletionPolicy.ARCHIVE, true);
 
-        assertThatThrownBy(() -> source.fetch(configuration, null))
+        assertThatThrownBy(() -> source.fetch(configuration, null, null))
                 .hasMessageContaining("https://");
     }
 
     /** A branch name is not a place for path traversal. */
     @Test
     void refusesABranchNameThatCouldEscapeTheUrlPath() {
-        assertThatThrownBy(() -> source.fetch(configuration("../../etc/passwd"), null))
+        assertThatThrownBy(() -> source.fetch(configuration("../../etc/passwd"), null, null))
                 .hasMessageContaining("not usable in a URL");
     }
 
@@ -211,7 +211,7 @@ class ArchiveDocumentSourceTest {
     void handlesAnEmptyArchive() throws IOException {
         body = zip(Map.of());
 
-        assertThat(source.fetch(configuration("main"), null).files()).isEmpty();
+        assertThat(source.fetch(configuration("main"), null, null).files()).isEmpty();
     }
 
     /**

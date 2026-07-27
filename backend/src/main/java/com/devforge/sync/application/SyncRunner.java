@@ -70,6 +70,16 @@ public class SyncRunner {
      */
     @Transactional
     public SyncOutcome run(SyncConfiguration configuration, UUID actorId) {
+        return run(configuration, actorId, null);
+    }
+
+    /**
+     * @param revision the exact revision to apply, or null for the configured
+     *                 branch. A webhook names the commit it delivered, which is
+     *                 both more accurate and immune to a host serving a cached
+     *                 archive of the branch — see {@link PushEvent}.
+     */
+    public SyncOutcome run(SyncConfiguration configuration, UUID actorId, String revision) {
         configuration.recordAttempt();
 
         if (!configuration.isConfigured()) {
@@ -89,7 +99,7 @@ public class SyncRunner {
                         + "DEVFORGE_JWT_SECRET was changed. Enter it again to reconnect."),
                         actorId);
             }
-            snapshot = source.fetch(configuration, token);
+            snapshot = source.fetch(configuration, token, revision);
         } catch (SourceUnavailableException e) {
             log.warn("Sync fetch failed for workspace {}: {}",
                     configuration.getWorkspaceId(), e.getMessage());

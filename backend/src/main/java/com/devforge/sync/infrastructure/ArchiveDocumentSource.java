@@ -65,8 +65,9 @@ public class ArchiveDocumentSource implements DocumentSource {
     }
 
     @Override
-    public SourceSnapshot fetch(SyncConfiguration configuration, String accessToken) {
-        URI archive = archiveUri(configuration);
+    public SourceSnapshot fetch(SyncConfiguration configuration, String accessToken, String revision) {
+        String ref = revision == null || revision.isBlank() ? configuration.getBranch() : revision;
+        URI archive = archiveUri(configuration, ref);
 
         HttpRequest.Builder request = HttpRequest.newBuilder(archive)
                 .timeout(Duration.ofSeconds(60))
@@ -94,8 +95,8 @@ public class ArchiveDocumentSource implements DocumentSource {
 
         if (response.statusCode() == 404) {
             throw new SourceUnavailableException(
-                    ("Nothing found at that repository and branch. Check the URL and that "
-                     + "branch '%s' exists.").formatted(configuration.getBranch()));
+                    ("Nothing found at that repository and revision. Check the URL and that "
+                     + "'%s' exists.").formatted(ref));
         }
         if (response.statusCode() == 401 || response.statusCode() == 403) {
             throw new SourceUnavailableException(
@@ -110,7 +111,9 @@ public class ArchiveDocumentSource implements DocumentSource {
                             .formatted(response.statusCode()));
         }
 
-        return new SourceSnapshot(configuration.getBranch(), read(response.body()));
+        // The snapshot records what was actually read, so the activity log says
+        // which commit a change came from rather than repeating the branch name.
+        return new SourceSnapshot(ref, read(response.body()));
     }
 
     /**
@@ -135,7 +138,7 @@ public class ArchiveDocumentSource implements DocumentSource {
      * A trailing {@code .git} is stripped because that is how a clone URL is usually
      * copied, and it is not part of the web path.
      */
-    private static URI archiveUri(SyncConfiguration configuration) {
+    private static URI archiveUri(SyncConfiguration configuration, String ref) {
         String base = configuration.getRepositoryUrl().trim()
                 .replaceAll("/+$", "")
                 .replaceAll("\\.git$", "");
@@ -149,7 +152,6 @@ public class ArchiveDocumentSource implements DocumentSource {
             // The ref goes in a path segment, so anything that could break out of it
             // is rejected rather than escaped — a branch name is not a place for
             // path traversal.
-            String ref = configuration.getBranch();
             if (ref.contains("..") || ref.startsWith("/")) {
                 throw new SourceUnavailableException("That branch name is not usable in a URL.");
             }

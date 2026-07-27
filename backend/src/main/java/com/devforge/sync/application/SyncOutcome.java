@@ -25,4 +25,16 @@ public record SyncOutcome(
     public static SyncOutcome failed(String message) {
         return new SyncOutcome(SyncStatus.FAILED, null, 0, 0, 0, 0, List.of(), message);
     }
+
+    /**
+     * Nothing was attempted, and nothing was wrong.
+     *
+     * <p>Reported as OK rather than FAILED: a push to a branch this workspace does
+     * not follow is a delivery working exactly as intended, and recording it as a
+     * failure would leave the settings screen showing a red status for a repository
+     * with nothing wrong with it.
+     */
+    public static SyncOutcome ignored(String message) {
+        return new SyncOutcome(SyncStatus.OK, null, 0, 0, 0, 0, List.of(), message);
+    }
 }
