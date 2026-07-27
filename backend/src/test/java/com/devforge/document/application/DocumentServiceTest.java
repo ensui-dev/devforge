@@ -52,6 +52,9 @@ class DocumentServiceTest {
     @Mock
     private DocumentHistoryService documentHistoryService;
 
+    @Mock
+    private DocumentChangeAnnouncer announcer;
+
     @InjectMocks
     private DocumentService documentService;
 

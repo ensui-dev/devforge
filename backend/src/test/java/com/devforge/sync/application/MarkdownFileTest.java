@@ -5,6 +5,8 @@ import com.devforge.document.contract.DocumentType;
 import com.devforge.document.contract.ReferenceType;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -333,5 +335,95 @@ class MarkdownFileTest {
     void namesADeepFileAfterItsFilename() {
         assertThat(parse("docs/runbooks/consumer-lag.md", "no heading").title())
                 .isEqualTo("Consumer lag");
+    }
+
+    // -------------------------------------------------------------------- writing
+
+    /**
+     * The property that makes two-way syncing safe: a file DevForge wrote is a file
+     * DevForge reads back as the same document. Anything less and an edit made in
+     * the interface would come back through a push subtly changed.
+     */
+    @Test
+    void whatItWritesItReadsBack() {
+        String rendered = MarkdownFile.render(
+                "Event ingestion",
+                "# Event ingestion\n\nThe body.",
+                DocumentType.ARCHITECTURE,
+                false,
+                List.of(new DeclaredReference(ReferenceType.DEPENDS_ON, "kafka-topics"),
+                        new DeclaredReference(ReferenceType.IMPLEMENTS, "rfc-7")));
+
+        MarkdownFile read = parse("docs/design.md", rendered);
+
+        assertThat(read.title()).isEqualTo("Event ingestion");
+        assertThat(read.content()).isEqualTo("# Event ingestion\n\nThe body.");
+        assertThat(read.documentType()).isEqualTo(DocumentType.ARCHITECTURE);
+        assertThat(read.internal()).isFalse();
+        assertThat(read.references()).containsExactlyInAnyOrder(
+                new DeclaredReference(ReferenceType.DEPENDS_ON, "kafka-topics"),
+                new DeclaredReference(ReferenceType.IMPLEMENTS, "rfc-7"));
+        assertThat(read.warnings()).isEmpty();
+    }
+
+    @Test
+    void writesAWithdrawnPageAsInternal() {
+        String rendered = MarkdownFile.render("Old", "body", DocumentType.GENERAL, true, List.of());
+
+        assertThat(parse("docs/old.md", rendered).internal()).isTrue();
+    }
+
+    /**
+     * A title the grammar would otherwise read as quoted has to be quoted again.
+     * Rendering it bare would lose a pair of characters on every round trip.
+     */
+    @Test
+    void quotesATitleThatWouldOtherwiseBeUnquotedOnTheWayBack() {
+        String rendered = MarkdownFile.render(
+                "\"Design\"", "body", DocumentType.GENERAL, false, List.of());
+
+        assertThat(parse("docs/a.md", rendered).title()).isEqualTo("\"Design\"");
+    }
+
+    /** A colon is ordinary in a title; only the first one separates key from value. */
+    @Test
+    void keepsAColonInATitle() {
+        String rendered = MarkdownFile.render(
+                "Design: part two", "body", DocumentType.GENERAL, false, List.of());
+
+        assertThat(parse("docs/a.md", rendered).title()).isEqualTo("Design: part two");
+    }
+
+    /**
+     * Rendering is deterministic, which is what stops an unchanged document from
+     * producing a commit every time it is saved.
+     */
+    @Test
+    void writesTheSameBytesForTheSameDocument() {
+        List<DeclaredReference> links = List.of(
+                new DeclaredReference(ReferenceType.DEPENDS_ON, "queue"),
+                new DeclaredReference(ReferenceType.DEPENDS_ON, "cache"));
+        List<DeclaredReference> reordered = List.of(
+                new DeclaredReference(ReferenceType.DEPENDS_ON, "cache"),
+                new DeclaredReference(ReferenceType.DEPENDS_ON, "queue"));
+
+        assertThat(MarkdownFile.render("A", "body", DocumentType.GENERAL, false, links))
+                .isEqualTo(MarkdownFile.render("A", "body", DocumentType.GENERAL, false, reordered));
+    }
+
+    @Test
+    void putsAFileWhereItsSlugSays() {
+        assertThat(MarkdownFile.pathFor("runbooks/consumer-lag", "docs"))
+                .isEqualTo("docs/runbooks/consumer-lag.md");
+        assertThat(MarkdownFile.pathFor("design", "")).isEqualTo("design.md");
+        assertThat(MarkdownFile.pathFor("design", "/docs/")).isEqualTo("docs/design.md");
+    }
+
+    /** Paths and slugs agree in both directions, which is the whole point. */
+    @Test
+    void aWrittenPathSlugsBackToItsSlug() {
+        String path = MarkdownFile.pathFor("runbooks/consumer-lag", "docs");
+
+        assertThat(MarkdownFile.slugFrom(path, "docs")).isEqualTo("runbooks/consumer-lag");
     }
 }

@@ -132,6 +132,88 @@ public record MarkdownFile(
                 List.copyOf(warnings));
     }
 
+    /**
+     * Writes a document back out as a file, in the form {@link #parse} reads.
+     *
+     * <p>The inverse lives beside the parser deliberately. Two-way syncing means a
+     * file DevForge wrote is a file DevForge will later read, and a grammar whose
+     * two halves live apart is a grammar that will disagree with itself — the
+     * round-trip test below this class only stays honest while both are here.
+     *
+     * <p>Every field is written explicitly rather than relying on the parser's
+     * fallbacks. A title inferred from a heading is a guess that happened to be
+     * right; once DevForge holds the answer, the file should say it.
+     *
+     * @param references the page's outgoing links, written one line per relationship
+     */
+    public static String render(
+            String title,
+            String content,
+            DocumentType documentType,
+            boolean internal,
+            List<DeclaredReference> references
+    ) {
+        StringBuilder text = new StringBuilder(FENCE).append('\n');
+        text.append("title: ").append(scalar(title)).append('\n');
+        text.append("type: ").append(documentType.name()).append('\n');
+        text.append("internal: ").append(internal).append('\n');
+
+        // Grouped by relationship, in the enum's order, so a file rewritten twice
+        // without changing produces identical bytes and therefore no commit.
+        for (ReferenceType type : ReferenceType.values()) {
+            List<String> targets = references.stream()
+                    .filter(reference -> reference.referenceType() == type)
+                    .map(DeclaredReference::targetSlug)
+                    .distinct()
+                    .sorted()
+                    .toList();
+            if (!targets.isEmpty()) {
+                text.append(type.name().toLowerCase()).append(": ")
+                        .append(String.join(", ", targets)).append('\n');
+            }
+        }
+
+        text.append(FENCE).append("\n\n");
+        text.append(content == null ? "" : content.strip().replace("\r\n", "\n"));
+        // A trailing newline, because every other tool that touches this file
+        // expects one and would otherwise add it as a spurious diff.
+        text.append('\n');
+        return text.toString();
+    }
+
+    /**
+     * Where a slug's file belongs, below the configured documentation folder.
+     *
+     * <p>The inverse of {@link #slugFrom}, but only of the part that is invertible:
+     * a slug written here reads back as itself, while a file named anything else
+     * that happens to slugify the same way keeps its own name. Deciding which of the
+     * two a given document should be written to is the mirror's job, not this one's.
+     */
+    public static String pathFor(String slug, String documentPath) {
+        String folder = documentPath == null ? "" : documentPath.strip();
+        folder = folder.replaceAll("^/+", "").replaceAll("/+$", "");
+        return (folder.isEmpty() ? "" : folder + "/") + slug + ".md";
+    }
+
+    /**
+     * A front-matter value, quoted only when leaving it bare would change it.
+     *
+     * <p>{@link #unquote} strips a matching pair of surrounding quotes, so a value
+     * that already looks quoted has to be quoted again to survive; everything else
+     * is left alone, which keeps the common file readable.
+     */
+    private static String scalar(String raw) {
+        String value = raw == null ? "" : raw.replace('\r', ' ').replace('\n', ' ');
+        boolean wouldChange = !value.equals(value.strip())
+                || !value.equals(unquote(value));
+        if (!wouldChange) {
+            return value;
+        }
+        // Whichever quote the value does not end with, so no escaping is needed —
+        // this grammar has none, and inventing one for a title is not worth it.
+        return value.contains("\"") ? "'" + value + "'" : "\"" + value + "\"";
+    }
+
     /** Skips the closing fence and the blank line that usually follows it. */
     private static String afterFence(String text, int close) {
         int from = close + 1 + FENCE.length();

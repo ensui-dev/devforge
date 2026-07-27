@@ -46,6 +46,9 @@ class DocumentReferenceServiceTest {
     @Mock
     private AuditTrail auditTrail;
 
+    @Mock
+    private DocumentChangeAnnouncer announcer;
+
     @InjectMocks
     private DocumentReferenceService referenceService;
 

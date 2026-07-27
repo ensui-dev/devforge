@@ -48,6 +48,9 @@ class DocumentAuthoringServiceTest {
     @Mock
     private AuditTrail auditTrail;
 
+    @Mock
+    private DocumentChangeAnnouncer announcer;
+
     @InjectMocks
     private DocumentAuthoringService authoring;
 

@@ -373,4 +373,179 @@ class GitHostingIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(authed(get("/api/workspaces/{w}/documents/by-slug/docs/a", ws), owner))
                 .andExpect(jsonPath("$.content").value("# A"));
     }
+
+    // ------------------------------------------------------- committing back out
+
+    /** A fresh clone of the workspace's repository, as a directory of real files. */
+    private Path cloneOf(TestUser owner, String workspaceSlug, String name) throws Exception {
+        Path clone = Files.createDirectories(scratch.resolve(name));
+        gitOk(clone, "clone", "-q", remote(owner, workspaceSlug, tokenFor(owner)), ".");
+        return clone;
+    }
+
+    private UUID documentId(TestUser owner, UUID workspaceId, String slug) throws Exception {
+        String json = mockMvc.perform(authed(
+                        get("/api/workspaces/{w}/documents/by-slug/" + slug, workspaceId), owner))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return UUID.fromString(objectMapper.readTree(json).get("id").asText());
+    }
+
+    private record EditPayload(
+            String title, String slug, String content, String documentType, Boolean internal) {
+    }
+
+    private void edit(TestUser user, UUID workspaceId, UUID documentId, EditPayload payload)
+            throws Exception {
+        mockMvc.perform(authed(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .put("/api/workspaces/{w}/documents/{d}", workspaceId, documentId)
+                                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                                .content(asJson(payload)), user))
+                .andExpect(status().isOk());
+    }
+
+    /**
+     * The other direction, and the point of the whole feature: an edit made in the
+     * interface is a commit, by the person who made it, visible to a clone.
+     */
+    @Test
+    void anEditInTheInterfaceBecomesACommit() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        Path work = workingCopy("mirror-edit", "docs/design.md", "# Design\n\nthe original");
+        gitOk(work, "push", "-q", remote(owner, "platform", tokenFor(owner)), "main");
+
+        edit(owner, ws, documentId(owner, ws, "docs/design"), new EditPayload(
+                "Design", "docs/design", "# Design\n\nedited in DevForge", "ARCHITECTURE", false));
+
+        Path clone = cloneOf(owner, "platform", "mirror-edit-clone");
+        assertThat(Files.readString(clone.resolve("docs/design.md")))
+                .contains("edited in DevForge")
+                .contains("type: ARCHITECTURE");
+
+        GitResult log = git(clone, "log", "-1", "--format=%an <%ae>%n%s");
+        assertThat(log.output())
+                .contains("Owner <owner@acme.test>")
+                .contains("Update docs/design");
+    }
+
+    @Test
+    void aPageCreatedInTheInterfaceAppearsInTheRepository() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        Path work = workingCopy("mirror-create", "docs/design.md", "# Design");
+        gitOk(work, "push", "-q", remote(owner, "platform", tokenFor(owner)), "main");
+
+        createDocument(owner, ws, "Consumer lag", "docs/runbooks/consumer-lag", "steps", "RUNBOOK");
+
+        Path clone = cloneOf(owner, "platform", "mirror-create-clone");
+        assertThat(clone.resolve("docs/runbooks/consumer-lag.md")).exists();
+        assertThat(Files.readString(clone.resolve("docs/runbooks/consumer-lag.md")))
+                .contains("title: Consumer lag")
+                .contains("type: RUNBOOK")
+                .endsWith("steps\n");
+        // The file it never mentioned is still there.
+        assertThat(clone.resolve("docs/design.md")).exists();
+    }
+
+    @Test
+    void deletingAPageDeletesItsFile() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        Path work = workingCopy("mirror-delete", "docs/a.md", "# A", "docs/b.md", "# B");
+        gitOk(work, "push", "-q", remote(owner, "platform", tokenFor(owner)), "main");
+
+        mockMvc.perform(authed(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .delete("/api/workspaces/{w}/documents/{d}",
+                                        ws, documentId(owner, ws, "docs/a")), owner))
+                .andExpect(status().isNoContent());
+
+        Path clone = cloneOf(owner, "platform", "mirror-delete-clone");
+        assertThat(clone.resolve("docs/a.md")).doesNotExist();
+        assertThat(clone.resolve("docs/b.md")).exists();
+    }
+
+    /** A renamed page moves rather than appearing twice. */
+    @Test
+    void renamingAPageMovesItsFile() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        Path work = workingCopy("mirror-rename", "docs/old-name.md", "# Old");
+        gitOk(work, "push", "-q", remote(owner, "platform", tokenFor(owner)), "main");
+
+        edit(owner, ws, documentId(owner, ws, "docs/old-name"), new EditPayload(
+                "Renamed", "docs/new-name", "# Renamed", "GENERAL", false));
+
+        Path clone = cloneOf(owner, "platform", "mirror-rename-clone");
+        assertThat(clone.resolve("docs/old-name.md")).doesNotExist();
+        assertThat(clone.resolve("docs/new-name.md")).exists();
+        assertThat(git(clone, "log", "-1", "--format=%s").output()).contains("Rename");
+    }
+
+    /**
+     * The loop breaker, proved rather than reasoned about: importing a push must
+     * not produce a commit of its own, or every push would grow a twin.
+     */
+    @Test
+    void aPushIsNotCommittedBackOut() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        createWorkspace(owner, "Platform", "platform");
+        Path work = workingCopy("mirror-echo", "docs/a.md", "# A", "docs/b.md", "# B");
+        gitOk(work, "push", "-q", remote(owner, "platform", tokenFor(owner)), "main");
+
+        Path clone = cloneOf(owner, "platform", "mirror-echo-clone");
+
+        assertThat(git(clone, "rev-list", "--count", "HEAD").output().strip()).isEqualTo("1");
+        // And the files are still the ones that were pushed, not rewritten copies.
+        assertThat(Files.readString(clone.resolve("docs/a.md"))).isEqualTo("# A");
+    }
+
+    /**
+     * A file named something other than its slug keeps its name. Rewriting it as
+     * {@code getting-started.md} would leave the repository holding the same page
+     * twice, and the next push would import both.
+     */
+    @Test
+    void rewritesTheFileWhereItAlreadyLives() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        Path work = workingCopy("mirror-name", "docs/Getting Started.md", "# Getting started");
+        gitOk(work, "push", "-q", remote(owner, "platform", tokenFor(owner)), "main");
+
+        edit(owner, ws, documentId(owner, ws, "docs/getting-started"), new EditPayload(
+                "Getting started", "docs/getting-started", "# Getting started\n\nmore", "GENERAL", false));
+
+        Path clone = cloneOf(owner, "platform", "mirror-name-clone");
+        assertThat(Files.readString(clone.resolve("docs/Getting Started.md"))).contains("more");
+        assertThat(clone.resolve("docs/getting-started.md")).doesNotExist();
+    }
+
+    /**
+     * The round trip: what DevForge writes, DevForge reads back unchanged. A push of
+     * its own commit must find nothing to do, or the two halves disagree.
+     */
+    @Test
+    void whatItWritesItReadsBackWithoutChangingAnything() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        Path work = workingCopy("mirror-round-trip", "docs/design.md", "# Design");
+        String url = remote(owner, "platform", tokenFor(owner));
+        gitOk(work, "push", "-q", url, "main");
+
+        edit(owner, ws, documentId(owner, ws, "docs/design"), new EditPayload(
+                "Design", "docs/design", "# Design\n\nedited", "DECISION", false));
+
+        // Pull DevForge's own commit back and push it again untouched.
+        Path clone = cloneOf(owner, "platform", "mirror-round-trip-clone");
+        write(clone, "docs/other.md", "# Other");
+        gitOk(clone, "add", ".");
+        commit(clone, "add another page");
+        GitResult result = git(clone, "push", url, "main");
+
+        assertThat(result.succeeded()).isTrue();
+        // One page created; the one DevForge wrote is recognised as unchanged.
+        assertThat(result.output()).contains("1 created, 0 updated, 0 withdrawn, 1 unchanged");
+    }
 }

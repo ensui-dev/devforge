@@ -4,6 +4,7 @@ import com.devforge.audit.contract.AuditAction;
 import com.devforge.audit.contract.AuditEntry;
 import com.devforge.audit.contract.AuditTargetType;
 import com.devforge.audit.contract.AuditTrail;
+import com.devforge.document.contract.AuthoringOrigin;
 import com.devforge.document.contract.DocumentRef;
 import com.devforge.document.domain.Document;
 import com.devforge.document.domain.DocumentReference;
@@ -38,17 +39,20 @@ public class DocumentReferenceService {
     private final DocumentReferenceRepository referenceRepository;
     private final WorkspaceAccess workspaceAccess;
     private final AuditTrail auditTrail;
+    private final DocumentChangeAnnouncer announcer;
 
     public DocumentReferenceService(
             DocumentRepository documentRepository,
             DocumentReferenceRepository referenceRepository,
             WorkspaceAccess workspaceAccess,
-            AuditTrail auditTrail
+            AuditTrail auditTrail,
+            DocumentChangeAnnouncer announcer
     ) {
         this.documentRepository = documentRepository;
         this.referenceRepository = referenceRepository;
         this.workspaceAccess = workspaceAccess;
         this.auditTrail = auditTrail;
+        this.announcer = announcer;
     }
 
     /**
@@ -98,7 +102,7 @@ public class DocumentReferenceService {
 
         // Loading both ends scoped to the workspace is what prevents linking
         // across team boundaries.
-        requireDocument(workspaceId, sourceDocumentId);
+        Document source = requireDocument(workspaceId, sourceDocumentId);
         Document target = requireDocument(workspaceId, request.targetDocumentId());
 
         if (referenceRepository.existsBySourceDocumentIdAndTargetDocumentIdAndReferenceType(
@@ -119,6 +123,9 @@ public class DocumentReferenceService {
                 .inWorkspace(workspaceId)
                 .with("referenceType", request.referenceType())
                 .with("targetDocumentId", request.targetDocumentId()));
+        // A link is part of what the source page says, so anything mirroring that
+        // page needs to hear about it.
+        announcer.written(source, AuthoringOrigin.DIRECT, null, userId);
 
         return DocumentReferenceResponse.of(
                 reference,
@@ -129,7 +136,7 @@ public class DocumentReferenceService {
     @Transactional
     public void deleteReference(UUID workspaceId, UUID documentId, UUID referenceId, UUID userId) {
         workspaceAccess.requireAccess(workspaceId, userId, WorkspaceRole.MEMBER);
-        requireDocument(workspaceId, documentId);
+        Document source = requireDocument(workspaceId, documentId);
 
         // Scoping by source id means a link can only be removed from the page that
         // declared it, so a backlink cannot be deleted out from under its owner.
@@ -144,6 +151,8 @@ public class DocumentReferenceService {
                 .with("targetDocumentId", reference.getTargetDocumentId()));
 
         referenceRepository.delete(reference);
+        // After the delete, so the announcement describes the links that remain.
+        announcer.written(source, AuthoringOrigin.DIRECT, null, userId);
     }
 
     private Document requireDocument(UUID workspaceId, UUID documentId) {

@@ -4,6 +4,7 @@ import com.devforge.audit.contract.AuditAction;
 import com.devforge.audit.contract.AuditEntry;
 import com.devforge.audit.contract.AuditTargetType;
 import com.devforge.audit.contract.AuditTrail;
+import com.devforge.document.contract.AuthoringOrigin;
 import com.devforge.document.contract.DocumentType;
 import com.devforge.document.domain.Document;
 import com.devforge.document.domain.DocumentRepository;
@@ -36,17 +37,20 @@ public class DocumentService {
     private final WorkspaceAccess workspaceAccess;
     private final DocumentHistoryService history;
     private final AuditTrail auditTrail;
+    private final DocumentChangeAnnouncer announcer;
 
     public DocumentService(
             DocumentRepository documentRepository,
             WorkspaceAccess workspaceAccess,
             DocumentHistoryService history,
-            AuditTrail auditTrail
+            AuditTrail auditTrail,
+            DocumentChangeAnnouncer announcer
     ) {
         this.documentRepository = documentRepository;
         this.workspaceAccess = workspaceAccess;
         this.history = history;
         this.auditTrail = auditTrail;
+        this.announcer = announcer;
     }
 
     public PageResponse<DocumentSummaryResponse> findByWorkspace(
@@ -182,6 +186,10 @@ public class DocumentService {
                 .target(document.getId(), document.getTitle())
                 .inWorkspace(workspaceId)
                 .with("slug", document.getSlug()));
+
+        // Announced before the delete, for the same reason: afterwards there is
+        // nothing left to describe.
+        announcer.removed(document, AuthoringOrigin.DIRECT, userId);
 
         // References to and from this document, its revisions, and any task links
         // all cascade. The audit entry is what survives.

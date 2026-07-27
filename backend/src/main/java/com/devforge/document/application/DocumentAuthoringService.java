@@ -45,17 +45,20 @@ public class DocumentAuthoringService implements DocumentAuthoring {
     private final DocumentReferenceRepository referenceRepository;
     private final DocumentHistoryService history;
     private final AuditTrail auditTrail;
+    private final DocumentChangeAnnouncer announcer;
 
     public DocumentAuthoringService(
             DocumentRepository documentRepository,
             DocumentReferenceRepository referenceRepository,
             DocumentHistoryService history,
-            AuditTrail auditTrail
+            AuditTrail auditTrail,
+            DocumentChangeAnnouncer announcer
     ) {
         this.documentRepository = documentRepository;
         this.referenceRepository = referenceRepository;
         this.history = history;
         this.auditTrail = auditTrail;
+        this.announcer = announcer;
     }
 
     @Override
@@ -160,6 +163,7 @@ public class DocumentAuthoringService implements DocumentAuthoring {
                 .inWorkspace(workspaceId)
                 .with("origin", origin)
                 .with("slug", slug));
+        announcer.removed(document, origin, actorId);
 
         documentRepository.delete(document);
         return true;
@@ -234,6 +238,10 @@ public class DocumentAuthoringService implements DocumentAuthoring {
                     .with("origin", origin)
                     .with("added", added)
                     .with("removed", removed));
+            // The page's links are part of what it says, so changing them changes
+            // the document even though no revision was written — a file holding this
+            // page declares its links in front matter.
+            announcer.written(source.get(), origin, null, actorId);
         }
 
         return new ReferenceOutcome(added, removed, List.copyOf(unresolved));

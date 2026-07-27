@@ -4,6 +4,7 @@ import com.devforge.audit.contract.AuditAction;
 import com.devforge.audit.contract.AuditEntry;
 import com.devforge.audit.contract.AuditTargetType;
 import com.devforge.audit.contract.AuditTrail;
+import com.devforge.document.contract.AuthoringOrigin;
 import com.devforge.document.domain.Document;
 import com.devforge.document.domain.DocumentContent;
 import com.devforge.document.domain.DocumentContentRepository;
@@ -20,6 +21,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -44,6 +46,7 @@ public class DocumentHistoryService {
     private final WorkspaceAccess workspaceAccess;
     private final UserDirectory userDirectory;
     private final AuditTrail auditTrail;
+    private final DocumentChangeAnnouncer announcer;
 
     public DocumentHistoryService(
             DocumentRepository documentRepository,
@@ -51,7 +54,8 @@ public class DocumentHistoryService {
             DocumentContentRepository contentRepository,
             WorkspaceAccess workspaceAccess,
             UserDirectory userDirectory,
-            AuditTrail auditTrail
+            AuditTrail auditTrail,
+            DocumentChangeAnnouncer announcer
     ) {
         this.documentRepository = documentRepository;
         this.revisionRepository = revisionRepository;
@@ -59,6 +63,7 @@ public class DocumentHistoryService {
         this.workspaceAccess = workspaceAccess;
         this.userDirectory = userDirectory;
         this.auditTrail = auditTrail;
+        this.announcer = announcer;
     }
 
     /**
@@ -77,13 +82,30 @@ public class DocumentHistoryService {
             contentRepository.save(new DocumentContent(document.getId(), document.getContent()));
         }
 
-        int next = revisionRepository
-                .findFirstByDocumentIdOrderByRevisionDesc(document.getId())
-                .map(latest -> latest.getRevision() + 1)
-                .orElse(1);
+        Optional<DocumentRevision> latest =
+                revisionRepository.findFirstByDocumentIdOrderByRevisionDesc(document.getId());
+        int next = latest.map(revision -> revision.getRevision() + 1).orElse(1);
 
         revisionRepository.save(new DocumentRevision(
                 document.getId(), next, document, reason, restoredFrom, authorId, labelFor(authorId)));
+
+        // Every change to a document passes through here, which is what makes this
+        // the one place that can announce one. The previous revision is already
+        // loaded, and it holds the only record of what the slug used to be — a
+        // listener mirroring documents onto paths needs that to tell a rename from
+        // a new page.
+        announcer.written(document, originOf(reason), latest.map(DocumentRevision::getSlug).orElse(null), authorId);
+    }
+
+    /**
+     * A synced revision is the only kind that did not come from a person here.
+     *
+     * <p>Derived rather than passed in, because the two are the same fact: a
+     * revision says SYNCED exactly when an external source of truth wrote it.
+     * Threading a second argument through every caller would let them disagree.
+     */
+    private static AuthoringOrigin originOf(RevisionReason reason) {
+        return reason == RevisionReason.SYNCED ? AuthoringOrigin.SYNC : AuthoringOrigin.DIRECT;
     }
 
     /**
