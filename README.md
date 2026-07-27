@@ -8,7 +8,9 @@ documents it depends on instead of restating them.
 The distinguishing idea is the **typed reference graph**. Documents do not merely
 cross-link; each edge has a meaning (`DEPENDS_ON`, `IMPLEMENTS`, `SUPERSEDES`,
 `DOCUMENTS`, `RELATED`), and every edge is visible from both ends. So "what breaks
-if I change this page?" is a query, not a search.
+if I change this page?" is a query, not a search — and the answer is not left to be
+asked for: an edge whose two ends have fallen out of step says so, in both
+directions, with the diff that made it true.
 
 DevForge is open source under the [MIT licence](LICENSE) and built to be
 self-hosted. A fresh deployment configures itself through a first-run setup
@@ -337,10 +339,17 @@ All routes require `Authorization: Bearer <token>` except registration and login
 | `GET` | `/api/workspaces/{id}/documents/{docId}/references` | `VIEWER` |
 | `POST` | `/api/workspaces/{id}/documents/{docId}/references` | `MEMBER` |
 | `DELETE` | `/api/workspaces/{id}/documents/{docId}/references/{refId}` | `MEMBER` |
+| `GET` | `/api/workspaces/{id}/documents/{docId}/references/{refId}/changes` | `VIEWER` |
 
 Listing a document's references returns outgoing links **and** backlinks, each
 labelled with its direction. A reference can only be deleted from the document that
 declared it.
+
+Each edge also says whether its two ends have fallen out of step — on an outgoing
+link, that the page it points at changed after this one was last revised; on a
+backlink, the reverse. Derived from revision timestamps rather than stored, so
+there is nothing to acknowledge and nothing to keep in step: editing a page is what
+brings it level. `/changes` returns what the linked page said then and says now.
 
 Document types: `GENERAL`, `CODE`, `PROCEDURE`, `TECHNOLOGY`, `TECH_STACK`,
 `ARCHITECTURE`, `API`, `RUNBOOK`, `DECISION`.
