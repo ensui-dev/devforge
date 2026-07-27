@@ -102,18 +102,35 @@ from anywhere and vice versa.
 
 ## The handbook
 
-DevForge documents itself. `scripts/seed_handbook.py` creates a **DevForge
-Handbook** workspace holding the platform's own documentation — 23 pages, 34 typed
-references, and a learning board whose tasks cite the pages that explain them:
+DevForge documents itself. The pages live in
+[devforge-docs](https://github.com/ensui-dev/devforge-docs), a submodule at `docs/`,
+as markdown with the same front matter the sync module reads — so the handbook is
+edited, reviewed and merged exactly like the code it describes:
+
+```bash
+git clone --recurse-submodules https://github.com/ensui-dev/devforge.git
+# already cloned without it
+git submodule update --init
+```
+
+`scripts/seed_handbook.py` reads `docs/handbook/` and creates a **DevForge Handbook**
+workspace from it — 30 pages, 54 typed references, and a learning board whose tasks
+cite the pages that explain them:
 
 ```bash
 python3 scripts/seed_handbook.py            # create or update it
 python3 scripts/seed_handbook.py --publish  # and make it public
 ```
 
-The script is idempotent: run it again after editing the content definitions and it
-updates existing pages **in place**, so their ids survive and every reference and
-task citation pointing at them stays intact.
+The script is idempotent: run it again after editing the markdown and it updates
+existing pages **in place**, so their ids survive and every reference and task
+citation pointing at them stays intact.
+
+The pages were string literals in that script until the submodule existed, which
+meant the only way to read the handbook was to run a seeding script against a live
+instance. Keeping a second copy there now would be worse than inconvenient — it
+would overwrite edits made in the repository — so the script has no content of its
+own, and says so if the submodule has not been checked out.
 
 **`/docs` renders that workspace live.** Edit a page in the app and reload the
 docs — no build, no deploy, no export step. The Connections panel on each page is
@@ -153,7 +170,7 @@ an ambiguous one falls back to the directory rather than guessing.
 ### Opt-out, with the state made obvious
 
 Publishing exposes every page **except** those marked internal. That is the useful
-default — a 23-page handbook should not need 23 decisions — but it means a page
+default — a 30-page handbook should not need 30 decisions — but it means a page
 written later is public as soon as it is saved. So the state is never hidden:
 
 - The navigation rail carries a **Documentation is public** banner on every screen
