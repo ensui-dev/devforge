@@ -1,6 +1,8 @@
 package com.devforge.sync.application;
 
+import com.devforge.document.contract.DeclaredReference;
 import com.devforge.document.contract.DocumentType;
+import com.devforge.document.contract.ReferenceType;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -175,5 +177,107 @@ class MarkdownFileTest {
 
         assertThat(file.title()).isEqualTo("Only metadata");
         assertThat(file.content()).isEmpty();
+    }
+
+    // ---------------------------------------------------------------- references
+
+    @Test
+    void readsTypedLinksFromRelationshipKeys() {
+        MarkdownFile file = parse("docs/ingestion.md", """
+                ---
+                title: Event ingestion
+                depends_on: kafka-topic-conventions
+                implements: event-driven-design
+                ---
+                body""");
+
+        assertThat(file.references()).containsExactlyInAnyOrder(
+                new DeclaredReference(ReferenceType.DEPENDS_ON, "kafka-topic-conventions"),
+                new DeclaredReference(ReferenceType.IMPLEMENTS, "event-driven-design"));
+        assertThat(file.declaresReferences()).isTrue();
+        assertThat(file.warnings()).isEmpty();
+    }
+
+    @Test
+    void readsSeveralTargetsFromOneKey() {
+        MarkdownFile file = parse("a.md",
+                "---\ndepends_on: one, two , three\n---\nbody");
+
+        assertThat(file.references()).extracting(DeclaredReference::targetSlug)
+                .containsExactly("one", "two", "three");
+        assertThat(file.references()).allSatisfy(reference ->
+                assertThat(reference.referenceType()).isEqualTo(ReferenceType.DEPENDS_ON));
+    }
+
+    @Test
+    void supportsEveryRelationship() {
+        MarkdownFile file = parse("a.md", """
+                ---
+                related: r
+                depends_on: d
+                implements: i
+                documents: doc
+                supersedes: s
+                ---
+                body""");
+
+        assertThat(file.references()).extracting(DeclaredReference::referenceType)
+                .containsExactlyInAnyOrder(
+                        ReferenceType.RELATED, ReferenceType.DEPENDS_ON, ReferenceType.IMPLEMENTS,
+                        ReferenceType.DOCUMENTS, ReferenceType.SUPERSEDES);
+    }
+
+    /** A link may name the file rather than the slug; both resolve the same way. */
+    @Test
+    void slugifiesTargetsSoAFilenameWorksToo() {
+        MarkdownFile file = parse("a.md",
+                "---\ndepends_on: Kafka Topic Conventions.md, already-a-slug\n---\nbody");
+
+        assertThat(file.references()).extracting(DeclaredReference::targetSlug)
+                .containsExactly("kafka-topic-conventions", "already-a-slug");
+    }
+
+    /**
+     * Declaring nothing is not the same as declaring an empty set. A repository of
+     * prose must not silently delete links made in the interface.
+     */
+    @Test
+    void distinguishesDeclaringNoLinksFromDeclaringNone() {
+        assertThat(parse("a.md", "# Just prose").declaresReferences()).isFalse();
+        assertThat(parse("a.md", "---\ntitle: A\n---\nbody").declaresReferences()).isFalse();
+        assertThat(parse("a.md", "---\ndepends_on:\n---\nbody").declaresReferences()).isFalse();
+    }
+
+    @Test
+    void refusesASelfReference() {
+        MarkdownFile file = parse("docs/loop.md", "---\ndepends_on: loop\n---\nbody");
+
+        assertThat(file.references()).isEmpty();
+        assertThat(file.warnings()).anyMatch(w -> w.contains("cannot reference itself"));
+    }
+
+    /** The same link twice is a duplicate, not two links. */
+    @Test
+    void collapsesADuplicatedTarget() {
+        MarkdownFile file = parse("a.md", "---\ndepends_on: same, same\n---\nbody");
+
+        assertThat(file.references()).hasSize(1);
+    }
+
+    /** Two relationships to one target are two different links, and both are kept. */
+    @Test
+    void keepsTwoDifferentRelationshipsToTheSameTarget() {
+        MarkdownFile file = parse("a.md",
+                "---\ndepends_on: shared\nrelated: shared\n---\nbody");
+
+        assertThat(file.references()).hasSize(2);
+    }
+
+    @Test
+    void ignoresEmptyEntriesInAList() {
+        MarkdownFile file = parse("a.md", "---\ndepends_on: one, , two,\n---\nbody");
+
+        assertThat(file.references()).extracting(DeclaredReference::targetSlug)
+                .containsExactly("one", "two");
     }
 }

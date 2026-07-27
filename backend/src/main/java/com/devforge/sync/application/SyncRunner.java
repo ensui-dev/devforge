@@ -6,6 +6,7 @@ import com.devforge.audit.contract.AuditTargetType;
 import com.devforge.audit.contract.AuditTrail;
 import com.devforge.document.contract.AuthoringOrigin;
 import com.devforge.document.contract.DocumentAuthoring;
+import com.devforge.document.contract.DocumentAuthoring.ReferenceOutcome;
 import com.devforge.document.contract.DocumentDraft;
 import com.devforge.shared.security.SecretCipher;
 import com.devforge.sync.domain.DeletionPolicy;
@@ -107,7 +108,7 @@ public class SyncRunner {
         // archive policy that would withdraw every page in the workspace in one go.
         // A repository that genuinely contains no documentation is indistinguishable
         // from a misconfiguration, so the destructive reading is refused.
-        if (plan.drafts().isEmpty() && !existing.isEmpty()
+        if (plan.documents().isEmpty() && !existing.isEmpty()
                 && configuration.getDeletionPolicy() != DeletionPolicy.IGNORE) {
             return record(configuration, SyncOutcome.failed(
                     ("Found no documentation at '%s' on branch %s, which would have withdrawn "
@@ -137,7 +138,11 @@ public class SyncRunner {
         int updated = 0;
         int unchanged = 0;
 
-        for (DocumentDraft draft : plan.drafts()) {
+        // First pass: every document exists before any link is resolved, so a file
+        // may point at one that appears later in the same import. Documentation is
+        // written as a graph, not in dependency order.
+        for (SyncPlan.PlannedDocument planned : plan.documents()) {
+            DocumentDraft draft = planned.draft();
             try {
                 switch (authoring.upsert(workspaceId, draft, actorId, AuthoringOrigin.SYNC)) {
                     case CREATED -> created++;
@@ -148,6 +153,33 @@ public class SyncRunner {
                 // One unusable file must not abandon the rest. Recording which one
                 // failed is more useful than a single opaque failure for the sync.
                 problems.add("%s: could not be applied (%s)".formatted(draft.slug(), e.getMessage()));
+            }
+        }
+
+        // Second pass: the typed links, now that every target can be resolved.
+        int linked = 0;
+        int unlinked = 0;
+        for (SyncPlan.PlannedDocument planned : plan.documents()) {
+            if (!planned.managesReferences()) {
+                // The file declares no relationships, so the repository is not
+                // managing this page's links and must not remove any.
+                continue;
+            }
+            try {
+                ReferenceOutcome outcome = authoring.replaceReferences(
+                        workspaceId,
+                        planned.draft().slug(),
+                        planned.references(),
+                        actorId,
+                        AuthoringOrigin.SYNC);
+                linked += outcome.added();
+                unlinked += outcome.removed();
+                outcome.unresolved().forEach(target -> problems.add(
+                        "%s: links to '%s', which is not a document here"
+                                .formatted(planned.draft().slug(), target)));
+            } catch (RuntimeException e) {
+                problems.add("%s: links could not be applied (%s)"
+                        .formatted(planned.draft().slug(), e.getMessage()));
             }
         }
 
@@ -174,16 +206,31 @@ public class SyncRunner {
                 archived,
                 unchanged,
                 List.copyOf(problems),
-                summarise(status, created, updated, archived, unchanged, problems.size()));
+                summarise(status, created, updated, archived, unchanged, linked, unlinked,
+                        problems.size()));
     }
 
     private static String summarise(
-            SyncStatus status, int created, int updated, int archived, int unchanged, int problems) {
-        String counts = "%d created, %d updated, %d withdrawn, %d unchanged"
-                .formatted(created, updated, archived, unchanged);
-        return status == SyncStatus.PARTIAL
-                ? counts + ", %d file(s) skipped".formatted(problems)
-                : counts;
+            SyncStatus status,
+            int created,
+            int updated,
+            int archived,
+            int unchanged,
+            int linked,
+            int unlinked,
+            int problems
+    ) {
+        StringBuilder counts = new StringBuilder("%d created, %d updated, %d withdrawn, %d unchanged"
+                .formatted(created, updated, archived, unchanged));
+        // Only mentioned when links actually moved, so an ordinary sync of prose does
+        // not report a graph that nobody is maintaining.
+        if (linked > 0 || unlinked > 0) {
+            counts.append(", %d links added, %d removed".formatted(linked, unlinked));
+        }
+        if (status == SyncStatus.PARTIAL) {
+            counts.append(", %d problem(s)".formatted(problems));
+        }
+        return counts.toString();
     }
 
     /** Stores the outcome on the configuration and records it in the audit log. */

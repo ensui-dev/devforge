@@ -1772,11 +1772,57 @@ API — the settings screen only tells you whether one is stored.
 Rotating `DEVFORGE_JWT_SECRET` makes stored tokens unreadable. The sync then reports
 that plainly and asks you to enter the token again.
 
+## Authoring the reference graph
+
+This is the part a wiki-in-git cannot do. Declare typed links in front matter, one
+key per relationship, naming target slugs:
+
+```markdown
+---
+title: Event ingestion pipeline
+type: ARCHITECTURE
+depends_on: kafka-topic-conventions, event-schema
+implements: event-driven-design
+---
+```
+
+The five relationships are `related`, `depends_on`, `implements`, `documents`, and
+`supersedes`. Targets are comma separated, and may name either a slug or a filename —
+`Kafka Topic Conventions.md` and `kafka-topic-conventions` mean the same page.
+
+Which means **the reference graph gets reviewed in a pull request**. Someone adding a
+dependency between two documents shows up as a diff, with the rest of the change that
+made it true.
+
+### Order does not matter
+
+Documents are all created first, and links resolved afterwards. A file may point at
+one that appears later in the same repository — documentation is written as a graph,
+not in dependency order.
+
+### Backlinks still come free
+
+Only outgoing links are declared. The page you point at gains its backlink
+automatically, and never has to mention you — so a widely-referenced page does not
+accumulate a list of everything that depends on it.
+
+### Declaring links is opt-in, per file
+
+A file that names no relationship is not managing its links, and syncing will not
+touch them. So a repository of plain prose can sit alongside links made in the
+interface without eating them.
+
+Once a file *does* declare a relationship, the repository is managing that page's
+outgoing links: they become exactly what the file says, and anything else is removed.
+
+### A link to nothing is reported
+
+A target that matches no document is listed as a problem on the settings screen. The
+page itself still syncs — one bad link does not block a good document — but the typo
+is visible immediately rather than being found by a reader months later.
+
 ## What this does not do yet
 
-- **References are not read from front matter.** Typed links between documents are
-  made in the interface. Authoring the reference graph in the repository is the
-  obvious next step and is not built.
 - **Nothing is pushed back.** Edits made here do not become commits.
 - **There is no history import.** A sync applies the current state of a ref; it does
   not replay a repository's commits into revisions.

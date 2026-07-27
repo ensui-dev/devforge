@@ -24,6 +24,9 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
 
     Optional<Document> findByWorkspaceIdAndSlug(UUID workspaceId, String slug);
 
+    /** Resolves many slugs at once, so importing a page's links is one query. */
+    List<Document> findByWorkspaceIdAndSlugIn(UUID workspaceId, java.util.Collection<String> slugs);
+
     /**
      * Slugs only.
      *

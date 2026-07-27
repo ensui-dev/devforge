@@ -610,4 +610,192 @@ class GitSyncIntegrationTest extends AbstractIntegrationTest {
                                  "accessToken":""}"""))
                 .andExpect(jsonPath("$.hasAccessToken").value(false));
     }
+
+    // ---------------------------------------------------------- reference graph
+
+    /**
+     * The two-pass import. A file may point at one that appears later in the same
+     * sync — documentation is written as a graph, not in dependency order — so every
+     * document is created before any link is resolved.
+     */
+    @Test
+    void resolvesALinkToADocumentThatDoesNotExistYet() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        configure(owner, ws, "ARCHIVE");
+
+        // 'ingestion' sorts before 'kafka', so it is written first and its link
+        // points at a document that does not exist at that moment.
+        source.files = List.of(
+                new SourceFile("docs/ingestion.md",
+                        "---\ntitle: Ingestion\ndepends_on: kafka\n---\nbody"),
+                new SourceFile("docs/kafka.md", "---\ntitle: Kafka\n---\nbody"));
+
+        mockMvc.perform(authed(post("/api/workspaces/{w}/sync/run", ws), owner))
+                .andExpect(jsonPath("$.lastStatus").value("OK"))
+                .andExpect(jsonPath("$.lastCreated").value(2));
+
+        UUID ingestion = documentIdOf(owner, ws, "ingestion");
+        mockMvc.perform(authed(
+                        get("/api/workspaces/{w}/documents/{d}/references", ws, ingestion), owner))
+                .andExpect(jsonPath("$[0].referenceType").value("DEPENDS_ON"))
+                .andExpect(jsonPath("$[0].outgoing").value(true))
+                .andExpect(jsonPath("$[0].relatedDocumentTitle").value("Kafka"));
+    }
+
+    /** Backlinks are derived, so the far side gains one without declaring anything. */
+    @Test
+    void theTargetGainsABacklinkWithoutDeclaringIt() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        configure(owner, ws, "ARCHIVE");
+        source.files = List.of(
+                new SourceFile("docs/ingestion.md", "---\ndepends_on: kafka\n---\nbody"),
+                new SourceFile("docs/kafka.md", "# Kafka"));
+        mockMvc.perform(authed(post("/api/workspaces/{w}/sync/run", ws), owner));
+
+        UUID kafka = documentIdOf(owner, ws, "kafka");
+        mockMvc.perform(authed(get("/api/workspaces/{w}/documents/{d}/references", ws, kafka), owner))
+                .andExpect(jsonPath("$[0].outgoing").value(false))
+                .andExpect(jsonPath("$[0].referenceType").value("DEPENDS_ON"));
+    }
+
+    @Test
+    void removesALinkTheRepositoryNoLongerDeclares() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        configure(owner, ws, "ARCHIVE");
+
+        source.files = List.of(
+                new SourceFile("docs/a.md", "---\ndepends_on: b, c\n---\nbody"),
+                new SourceFile("docs/b.md", "# B"),
+                new SourceFile("docs/c.md", "# C"));
+        mockMvc.perform(authed(post("/api/workspaces/{w}/sync/run", ws), owner));
+
+        UUID a = documentIdOf(owner, ws, "a");
+        mockMvc.perform(authed(get("/api/workspaces/{w}/documents/{d}/references", ws, a), owner))
+                .andExpect(jsonPath("$.length()").value(2));
+
+        // One link dropped upstream.
+        source.files = List.of(
+                new SourceFile("docs/a.md", "---\ndepends_on: b\n---\nbody"),
+                new SourceFile("docs/b.md", "# B"),
+                new SourceFile("docs/c.md", "# C"));
+        mockMvc.perform(authed(post("/api/workspaces/{w}/sync/run", ws), owner))
+                .andExpect(jsonPath("$.lastStatus").value("OK"));
+
+        mockMvc.perform(authed(get("/api/workspaces/{w}/documents/{d}/references", ws, a), owner))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].relatedDocumentSlug").value("b"));
+    }
+
+    /**
+     * Opting in per file. A repository of prose that declares no relationships must
+     * not silently delete links someone made in the interface.
+     */
+    @Test
+    void leavesHandMadeLinksAloneWhenTheFileDeclaresNone() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        configure(owner, ws, "ARCHIVE");
+
+        source.files = List.of(
+                new SourceFile("docs/a.md", "# A"),
+                new SourceFile("docs/b.md", "# B"));
+        mockMvc.perform(authed(post("/api/workspaces/{w}/sync/run", ws), owner));
+
+        UUID a = documentIdOf(owner, ws, "a");
+        UUID b = documentIdOf(owner, ws, "b");
+
+        // A link made in the interface, not in the repository.
+        mockMvc.perform(authed(post("/api/workspaces/{w}/documents/{d}/references", ws, a), owner)
+                        .content("""
+                                {"targetDocumentId":"%s","referenceType":"RELATED"}""".formatted(b)))
+                .andExpect(status().isCreated());
+
+        // Syncing again must not remove it.
+        mockMvc.perform(authed(post("/api/workspaces/{w}/sync/run", ws), owner))
+                .andExpect(jsonPath("$.lastStatus").value("OK"));
+
+        mockMvc.perform(authed(get("/api/workspaces/{w}/documents/{d}/references", ws, a), owner))
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    /** Once a file declares links, the repository is managing that page's graph. */
+    @Test
+    void replacesHandMadeLinksOnceTheFileDeclaresItsOwn() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        configure(owner, ws, "ARCHIVE");
+
+        source.files = List.of(
+                new SourceFile("docs/a.md", "# A"),
+                new SourceFile("docs/b.md", "# B"),
+                new SourceFile("docs/c.md", "# C"));
+        mockMvc.perform(authed(post("/api/workspaces/{w}/sync/run", ws), owner));
+
+        UUID a = documentIdOf(owner, ws, "a");
+        UUID b = documentIdOf(owner, ws, "b");
+        mockMvc.perform(authed(post("/api/workspaces/{w}/documents/{d}/references", ws, a), owner)
+                        .content("""
+                                {"targetDocumentId":"%s","referenceType":"RELATED"}""".formatted(b)))
+                .andExpect(status().isCreated());
+
+        source.files = List.of(
+                new SourceFile("docs/a.md", "---\ndepends_on: c\n---\nbody"),
+                new SourceFile("docs/b.md", "# B"),
+                new SourceFile("docs/c.md", "# C"));
+        mockMvc.perform(authed(post("/api/workspaces/{w}/sync/run", ws), owner));
+
+        mockMvc.perform(authed(get("/api/workspaces/{w}/documents/{d}/references", ws, a), owner))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].relatedDocumentSlug").value("c"))
+                .andExpect(jsonPath("$[0].referenceType").value("DEPENDS_ON"));
+    }
+
+    /** A typo in a link is exactly what a reader would otherwise discover much later. */
+    @Test
+    void reportsALinkToSomethingThatIsNotThere() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        configure(owner, ws, "ARCHIVE");
+
+        source.files = List.of(
+                new SourceFile("docs/a.md", "---\ndepends_on: typo-here\n---\nbody"));
+
+        mockMvc.perform(authed(post("/api/workspaces/{w}/sync/run", ws), owner))
+                .andExpect(jsonPath("$.lastStatus").value("PARTIAL"))
+                // The document is still applied; only its bad link is reported.
+                .andExpect(jsonPath("$.lastCreated").value(1))
+                .andExpect(jsonPath("$.problems[0]").value(
+                        org.hamcrest.Matchers.containsString("typo-here")));
+    }
+
+    @Test
+    void aRepeatedSyncDoesNotChurnTheGraph() throws Exception {
+        TestUser owner = registerUser("owner@acme.test", "Owner");
+        UUID ws = createWorkspace(owner, "Platform", "platform");
+        configure(owner, ws, "ARCHIVE");
+        source.files = List.of(
+                new SourceFile("docs/a.md", "---\ndepends_on: b\n---\nbody"),
+                new SourceFile("docs/b.md", "# B"));
+
+        mockMvc.perform(authed(post("/api/workspaces/{w}/sync/run", ws), owner))
+                .andExpect(jsonPath("$.lastMessage").value(
+                        org.hamcrest.Matchers.containsString("1 links added")));
+
+        // Nothing moved, so the second run says nothing about links at all.
+        mockMvc.perform(authed(post("/api/workspaces/{w}/sync/run", ws), owner))
+                .andExpect(jsonPath("$.lastStatus").value("OK"))
+                .andExpect(jsonPath("$.lastMessage").value(
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("links"))));
+    }
+
+    private UUID documentIdOf(TestUser user, UUID workspaceId, String slug) throws Exception {
+        String response = mockMvc.perform(authed(
+                        get("/api/workspaces/{w}/documents/by-slug/{s}", workspaceId, slug), user))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return UUID.fromString(objectMapper.readTree(response).get("id").asText());
+    }
 }

@@ -5,17 +5,25 @@ import com.devforge.audit.contract.AuditEntry;
 import com.devforge.audit.contract.AuditTargetType;
 import com.devforge.audit.contract.AuditTrail;
 import com.devforge.document.contract.AuthoringOrigin;
+import com.devforge.document.contract.DeclaredReference;
 import com.devforge.document.contract.DocumentAuthoring;
 import com.devforge.document.contract.DocumentDraft;
 import com.devforge.document.domain.Document;
+import com.devforge.document.domain.DocumentReference;
+import com.devforge.document.domain.DocumentReferenceRepository;
 import com.devforge.document.domain.DocumentRepository;
 import com.devforge.document.domain.RevisionReason;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * The document module's implementation of its own authoring contract.
@@ -34,15 +42,18 @@ import java.util.UUID;
 public class DocumentAuthoringService implements DocumentAuthoring {
 
     private final DocumentRepository documentRepository;
+    private final DocumentReferenceRepository referenceRepository;
     private final DocumentHistoryService history;
     private final AuditTrail auditTrail;
 
     public DocumentAuthoringService(
             DocumentRepository documentRepository,
+            DocumentReferenceRepository referenceRepository,
             DocumentHistoryService history,
             AuditTrail auditTrail
     ) {
         this.documentRepository = documentRepository;
+        this.referenceRepository = referenceRepository;
         this.history = history;
         this.auditTrail = auditTrail;
     }
@@ -152,6 +163,84 @@ public class DocumentAuthoringService implements DocumentAuthoring {
 
         documentRepository.delete(document);
         return true;
+    }
+
+    @Override
+    public ReferenceOutcome replaceReferences(
+            UUID workspaceId,
+            String sourceSlug,
+            List<DeclaredReference> declared,
+            UUID actorId,
+            AuthoringOrigin origin
+    ) {
+        Optional<Document> source = documentRepository.findByWorkspaceIdAndSlug(workspaceId, sourceSlug);
+        if (source.isEmpty()) {
+            return ReferenceOutcome.nothing();
+        }
+        UUID sourceId = source.get().getId();
+
+        // Resolve every declared target in one query rather than one per link.
+        List<String> targetSlugs = declared.stream().map(DeclaredReference::targetSlug).distinct().toList();
+        Map<String, UUID> idBySlug = targetSlugs.isEmpty()
+                ? Map.of()
+                : documentRepository.findByWorkspaceIdAndSlugIn(workspaceId, targetSlugs).stream()
+                        .collect(Collectors.toMap(Document::getSlug, Document::getId));
+
+        List<String> unresolved = new ArrayList<>();
+        Set<Wanted> wanted = new LinkedHashSet<>();
+        for (DeclaredReference reference : declared) {
+            UUID targetId = idBySlug.get(reference.targetSlug());
+            if (targetId == null) {
+                // A typo in a link is exactly what a reader would otherwise find out
+                // about much later, so it is reported rather than dropped.
+                unresolved.add(reference.targetSlug());
+                continue;
+            }
+            if (targetId.equals(sourceId)) {
+                unresolved.add(reference.targetSlug() + " (a document cannot reference itself)");
+                continue;
+            }
+            wanted.add(new Wanted(targetId, reference.referenceType()));
+        }
+
+        List<DocumentReference> existing = referenceRepository.findBySourceDocumentId(sourceId);
+        Set<Wanted> current = existing.stream()
+                .map(reference -> new Wanted(reference.getTargetDocumentId(), reference.getReferenceType()))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        int removed = 0;
+        for (DocumentReference reference : existing) {
+            Wanted asWanted = new Wanted(reference.getTargetDocumentId(), reference.getReferenceType());
+            if (!wanted.contains(asWanted)) {
+                referenceRepository.delete(reference);
+                removed++;
+            }
+        }
+
+        int added = 0;
+        for (Wanted link : wanted) {
+            if (!current.contains(link)) {
+                referenceRepository.save(
+                        new DocumentReference(sourceId, link.targetId(), link.referenceType()));
+                added++;
+            }
+        }
+
+        if (added > 0 || removed > 0) {
+            auditTrail.record(actorId, AuditEntry
+                    .of(AuditAction.DOCUMENT_LINKED, AuditTargetType.DOCUMENT)
+                    .target(sourceId, source.get().getTitle())
+                    .inWorkspace(workspaceId)
+                    .with("origin", origin)
+                    .with("added", added)
+                    .with("removed", removed));
+        }
+
+        return new ReferenceOutcome(added, removed, List.copyOf(unresolved));
+    }
+
+    /** A link as a set member, so reconciling is a set difference rather than a scan. */
+    private record Wanted(UUID targetId, com.devforge.document.contract.ReferenceType referenceType) {
     }
 
     @Override

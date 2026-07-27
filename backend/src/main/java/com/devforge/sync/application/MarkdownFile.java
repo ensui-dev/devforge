@@ -1,6 +1,8 @@
 package com.devforge.sync.application;
 
+import com.devforge.document.contract.DeclaredReference;
 import com.devforge.document.contract.DocumentType;
+import com.devforge.document.contract.ReferenceType;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -28,6 +30,22 @@ import java.util.Map;
  * # Event ingestion pipeline
  * </pre>
  *
+ * <p>Typed links are declared with one key per relationship, naming target slugs:
+ *
+ * <pre>
+ * ---
+ * title: Event ingestion pipeline
+ * type: ARCHITECTURE
+ * depends_on: kafka-topic-conventions, event-schema
+ * implements: event-driven-design
+ * ---
+ * </pre>
+ *
+ * <p>A flat key per relationship rather than a nested {@code references:} list,
+ * which would need list syntax this grammar deliberately does not have. It also
+ * reads better: the relationship is the key, so a reader sees "depends on these"
+ * rather than parsing a list of single-entry maps.
+ *
  * <p>Every key is optional. A file with no front matter at all is still a valid
  * document: the title is taken from its first heading, or failing that its filename.
  */
@@ -37,9 +55,27 @@ public record MarkdownFile(
         String content,
         DocumentType documentType,
         boolean internal,
+        /**
+         * Typed links this file declares, by target slug.
+         *
+         * <p>Empty means the file declared none, which is different from declaring
+         * an empty set — a file that mentions no relationship is not asking for its
+         * links to be managed. {@link #declaresReferences()} distinguishes the two.
+         */
+        List<DeclaredReference> references,
         /** Keys that were present but not understood, surfaced rather than ignored. */
         List<String> warnings
 ) {
+
+    /**
+     * Whether this file is managing its own links.
+     *
+     * <p>Opting in per file matters: a repository holding prose but no relationships
+     * must not silently delete links someone made in the interface.
+     */
+    public boolean declaresReferences() {
+        return !references.isEmpty();
+    }
 
     private static final String FENCE = "---";
 
@@ -79,6 +115,7 @@ public record MarkdownFile(
                 body.strip(),
                 type(front.get("type"), fallbackType, warnings),
                 bool(front.get("internal"), warnings),
+                references(front, slug, warnings),
                 List.copyOf(warnings));
     }
 
@@ -118,8 +155,54 @@ public record MarkdownFile(
         }
     }
 
-    private static final java.util.Set<String> KNOWN_KEYS =
-            java.util.Set.of("title", "type", "internal");
+    /** Reference relationships, lowercased, as front matter spells them. */
+    private static final java.util.Map<String, ReferenceType> REFERENCE_KEYS =
+            java.util.Arrays.stream(ReferenceType.values())
+                    .collect(java.util.stream.Collectors.toMap(
+                            type -> type.name().toLowerCase(), type -> type));
+
+    private static final java.util.Set<String> KNOWN_KEYS = java.util.stream.Stream.concat(
+                    java.util.stream.Stream.of("title", "type", "internal"),
+                    REFERENCE_KEYS.keySet().stream())
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
+
+    /**
+     * Reads the relationship keys into declared links.
+     *
+     * <p>Targets are comma separated and slugified the same way a filename is, so a
+     * link may name either the slug or the file — {@code kafka-conventions} and
+     * {@code Kafka Conventions.md} resolve to the same page.
+     */
+    private static List<DeclaredReference> references(
+            Map<String, String> front,
+            String sourceSlug,
+            List<String> warnings
+    ) {
+        List<DeclaredReference> declared = new java.util.ArrayList<>();
+        java.util.Set<String> seen = new java.util.LinkedHashSet<>();
+
+        for (Map.Entry<String, ReferenceType> entry : REFERENCE_KEYS.entrySet()) {
+            String value = front.get(entry.getKey());
+            if (value == null || value.isBlank()) {
+                continue;
+            }
+            for (String raw : value.split(",")) {
+                String target = slugFrom(raw.strip());
+                if (target.isBlank() || target.equals("untitled")) {
+                    continue;
+                }
+                if (target.equals(sourceSlug)) {
+                    warnings.add("%s: a document cannot reference itself".formatted(entry.getKey()));
+                    continue;
+                }
+                // The same link declared twice is a duplicate, not two links.
+                if (seen.add(entry.getKey() + ":" + target)) {
+                    declared.add(new DeclaredReference(entry.getValue(), target));
+                }
+            }
+        }
+        return List.copyOf(declared);
+    }
 
     private static String unquote(String value) {
         if (value.length() >= 2

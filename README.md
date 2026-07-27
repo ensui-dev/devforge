@@ -547,10 +547,6 @@ Deliberate omissions, in rough priority order:
   document body is stored once per distinct content, so a restore or a reverted edit
   adds none — but nothing prunes them. Deleting a document removes its revisions;
   its audit entries are kept deliberately.
-- **Authoring the reference graph in git.** Documents sync from a repository, but
-  typed links between them still have to be made in the interface. Reading a
-  `references:` key from front matter needs a two-pass import to resolve forward
-  references, and is not built.
 - **Pushing back to git.** Sync is one-way: edits made in DevForge do not become
   commits.
 - **Importing git history.** A sync applies the state of a ref rather than replaying

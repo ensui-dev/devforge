@@ -1,5 +1,6 @@
 package com.devforge.sync.application;
 
+import com.devforge.document.contract.DeclaredReference;
 import com.devforge.document.contract.DocumentDraft;
 import com.devforge.document.contract.DocumentType;
 import com.devforge.sync.domain.DeletionPolicy;
@@ -21,15 +22,41 @@ import java.util.TreeSet;
  * which is what makes the interesting cases (a collision, an empty snapshot, a
  * misconfigured path) testable in isolation.
  *
- * @param drafts   documents to upsert, in a stable order so a sync is reproducible
- * @param archived slugs present in the workspace but absent from the source
- * @param problems files that could not be used, and why
+ * @param documents documents to write, each with the links its file declared, in a
+ *                  stable order so a sync is reproducible
+ * @param archived  slugs present in the workspace but absent from the source
+ * @param problems  files that could not be used, and why
  */
 public record SyncPlan(
-        List<DocumentDraft> drafts,
+        List<PlannedDocument> documents,
         List<String> archived,
         List<String> problems
 ) {
+
+    /**
+     * A document to write, with the links its file declared.
+     *
+     * @param references empty when the file declared none, which is different from
+     *                   declaring an empty set — see {@link #managesReferences}
+     */
+    public record PlannedDocument(DocumentDraft draft, List<DeclaredReference> references) {
+
+        /**
+         * Whether the repository is managing this page's outgoing links.
+         *
+         * <p>Opt-in per file. A repository of prose that mentions no relationships
+         * must not silently delete links someone made in the interface, so only a
+         * file that declares at least one has its links reconciled.
+         */
+        public boolean managesReferences() {
+            return !references.isEmpty();
+        }
+    }
+
+    /** The drafts alone, for callers that do not care about links. */
+    public List<DocumentDraft> drafts() {
+        return documents.stream().map(PlannedDocument::draft).toList();
+    }
 
     /** Only markdown is considered; a repository holds plenty that is not documentation. */
     private static boolean isMarkdown(String path) {
@@ -52,7 +79,7 @@ public record SyncPlan(
             DeletionPolicy deletionPolicy
     ) {
         List<String> problems = new ArrayList<>();
-        Map<String, DocumentDraft> bySlug = new HashMap<>();
+        Map<String, PlannedDocument> bySlug = new HashMap<>();
         Map<String, String> pathBySlug = new HashMap<>();
 
         List<SourceFile> considered = snapshot.files().stream()
@@ -76,18 +103,20 @@ public record SyncPlan(
             }
 
             pathBySlug.put(parsed.slug(), file.path());
-            bySlug.put(parsed.slug(), new DocumentDraft(
-                    parsed.slug(),
-                    parsed.title(),
-                    parsed.content(),
-                    parsed.documentType(),
-                    parsed.internal()));
+            bySlug.put(parsed.slug(), new PlannedDocument(
+                    new DocumentDraft(
+                            parsed.slug(),
+                            parsed.title(),
+                            parsed.content(),
+                            parsed.documentType(),
+                            parsed.internal()),
+                    parsed.references()));
         }
 
         // Sorted so two syncs of the same snapshot produce the same order of writes,
         // which makes the audit log readable and the tests deterministic.
-        List<DocumentDraft> drafts = bySlug.values().stream()
-                .sorted(Comparator.comparing(DocumentDraft::slug))
+        List<PlannedDocument> documents = bySlug.values().stream()
+                .sorted(Comparator.comparing(planned -> planned.draft().slug()))
                 .toList();
 
         Set<String> missing = new TreeSet<>(existingSlugs);
@@ -97,7 +126,7 @@ public record SyncPlan(
                 ? List.of()
                 : List.copyOf(missing);
 
-        return new SyncPlan(drafts, archived, List.copyOf(problems));
+        return new SyncPlan(documents, archived, List.copyOf(problems));
     }
 
     /**
@@ -115,6 +144,6 @@ public record SyncPlan(
     }
 
     public boolean isEmpty() {
-        return drafts.isEmpty() && archived.isEmpty();
+        return documents.isEmpty() && archived.isEmpty();
     }
 }

@@ -48,6 +48,39 @@ public interface DocumentAuthoring {
     /** Every slug in the workspace, for working out what a source no longer contains. */
     List<String> slugsIn(UUID workspaceId);
 
+    /**
+     * Makes a document's outgoing references exactly those declared.
+     *
+     * <p>Called in a second pass, after every document exists, so a file may point at
+     * one that appears later in the same import — which is the normal case, since
+     * documentation is written as a graph rather than in dependency order.
+     *
+     * <p>Only outgoing references are touched. Backlinks are derived from the far
+     * side's declarations, so a page is never edited by something it points at.
+     *
+     * @param declared the complete set for this source; anything currently stored and
+     *                 not listed here is removed
+     * @return what changed, and any target slug that matched no document
+     */
+    ReferenceOutcome replaceReferences(
+            UUID workspaceId,
+            String sourceSlug,
+            List<DeclaredReference> declared,
+            UUID actorId,
+            AuthoringOrigin origin);
+
+    /**
+     * @param unresolved target slugs that matched no document, reported rather than
+     *                   dropped — a typo in a link is exactly the thing a reader
+     *                   would otherwise discover much later
+     */
+    record ReferenceOutcome(int added, int removed, List<String> unresolved) {
+
+        public static ReferenceOutcome nothing() {
+            return new ReferenceOutcome(0, 0, List.of());
+        }
+    }
+
     enum AuthoringResult {
         CREATED,
         UPDATED,
